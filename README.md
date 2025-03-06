@@ -4,7 +4,7 @@ FRC 3824's Scouting App, "ScoutinFRC"
 
 ## Short Introduction
 
-This is the repo for the HVA RoHAWKtics Scouting App "ScoutinFRC" This app is specifically for the 2023-2024 Season, but will be updated whenever the newest season begins.
+This is the repo for the HVA RoHAWKtics Scouting App "ScoutinFRC" A multi-featured scouting app created using Flutter.
 
 ## Features
 
