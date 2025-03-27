@@ -1,4 +1,3 @@
-// Add all your original imports
 // ignore_for_file: unused_import, depend_on_referenced_packages, use_build_context_synchronously, use_key_in_widget_constructors, library_private_types_in_public_api, prefer_const_constructors, deprecated_member_use
 
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
@@ -11,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:scouting2024/team_comparison.dart' as team;
 import 'package:scouting2024/credits.dart' as credits;
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Function to get dark dialog theme
 ThemeData getDarkDialogTheme(BuildContext context) {
@@ -145,7 +145,97 @@ Future<void> updateUsername(BuildContext context) async {
   );
 }
 
+// Function to update event key
+Future<bool> updateEventKey(BuildContext context) async {
+  // Get current event key from SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  final currentEventKey = prefs.getString('eventKey') ?? '2025alhu';
+
+  final TextEditingController eventKeyController = TextEditingController(text: currentEventKey);
+  bool updated = false;
+  
+  await showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (BuildContext context) {
+      return Material(
+        type: MaterialType.transparency,
+        child: Theme(
+          data: getDarkDialogTheme(context),
+          child: AlertDialog(
+            elevation: 0,
+            backgroundColor: Color.fromRGBO(65, 68, 73, 1),
+            title: Text('Set Event Key', style: TextStyle(color: Colors.white)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: eventKeyController,
+                  style: TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Event Key',
+                    hintText: 'e.g., 2025alhu',
+                    hintStyle: TextStyle(color: Colors.white54),
+                  ),
+                  autofocus: true,
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'This will be used for both rankings display and analytics.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                child: Text('Cancel'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              TextButton(
+                child: Text('Save'),
+                onPressed: () async {
+                  final newEventKey = eventKeyController.text.trim();
+                  if (newEventKey.isNotEmpty) {
+                    try {
+                      // Save to SharedPreferences
+                      await prefs.setString('eventKey', newEventKey);
+                      // Also save as lastEventKey for analytics
+                      await prefs.setString('lastEventKey', newEventKey);
+                      updated = true;
+                      Navigator.of(context).pop();
+                      
+                      // Show confirmation
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Event key updated to $newEventKey')),
+                      );
+                    } catch (e) {
+                      print('Failed to update event key: $e');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to update event key')),
+                      );
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Event key cannot be empty')),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  
+  return updated;
+}
+
 class NavBar extends StatelessWidget {
+  final Function? onEventKeyUpdated;
+  
+  const NavBar({Key? key, this.onEventKeyUpdated}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -154,6 +244,19 @@ class NavBar extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           const Gap(120),
+          ListTile(
+            leading: const Icon(Icons.event),
+            iconColor: Colors.white,
+            title: const Text('Set Event Key'),
+            textColor: Colors.white,
+            onTap: () async {
+              bool updated = await updateEventKey(context);
+              if (updated && onEventKeyUpdated != null) {
+                onEventKeyUpdated!();
+                Navigator.pop(context); // Close the drawer
+              }
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.person),
             iconColor: Colors.white,

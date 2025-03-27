@@ -1,4 +1,4 @@
-// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, unused_import
+// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, unused_import, prefer_const_constructors
 
 // Imports
 import 'package:flutter/material.dart';
@@ -19,6 +19,7 @@ import 'pitscout.dart' as pitscout;
 import 'admin.dart' as admin;
 import 'analytics.dart' as analytics;
 import 'schedule.dart' as schedule;
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Firebase Initialization
 Future<void> firebaseInit() async {
@@ -104,6 +105,7 @@ class _HomePageState extends State<HomePage> {
   List<dynamic> rankings = [];
   String _username = "Loading...";
   String _role = "";
+  String _currentEventKey = "2025alhu"; // Default event key
 
   @override
   void initState() {
@@ -112,12 +114,37 @@ class _HomePageState extends State<HomePage> {
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
-    fetchRankings();
-    fetchUserDetails();
+    _loadEventKey();
+  }
+
+  // Load saved event key from SharedPreferences
+  Future<void> _loadEventKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedEventKey = prefs.getString('eventKey');
+      if (savedEventKey != null && savedEventKey.isNotEmpty) {
+        setState(() {
+          _currentEventKey = savedEventKey;
+        });
+      }
+      // After loading the event key, fetch data
+      fetchRankings();
+      fetchUserDetails();
+    } catch (e) {
+      print('Error loading event key: $e');
+      // If there's an error, still try to fetch data with default key
+      fetchRankings();
+      fetchUserDetails();
+    }
+  }
+
+  // Refresh data when event key is updated
+  void _refreshData() {
+    _loadEventKey();
   }
 
   Future<void> fetchRankings() async {
-    const String eventCode = '2024tnkn';
+    final eventCode = _currentEventKey;
     const String apiKey = 'XKgCGALe7EzYqZUeKKONsQ45iGHVUZYlN0F6qQzchKQrLxED5DFWrYi9pcjxIzGY';
 
     try {
@@ -129,19 +156,27 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (response.statusCode == 200) {
-        setState(() {
-          rankings = json.decode(response.body)['rankings'];
-        });
+        final data = json.decode(response.body);
+        if (mounted) {
+          setState(() {
+            rankings = data['rankings'] ?? [];
+          });
+        }
       } else {
-        throw Exception('Failed to load rankings');
+        throw Exception('Failed to load rankings: Status ${response.statusCode}');
       }
     } catch (e) {
+      print('Error fetching rankings: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Failed to load rankings."),
+          SnackBar(
+            content: Text("Failed to load rankings for event $eventCode. Error: $e"),
           ),
         );
+        // Reset rankings to empty if there was an error
+        setState(() {
+          rankings = [];
+        });
       }
     }
   }
@@ -173,7 +208,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: NavBar(),
+      drawer: NavBar(onEventKeyUpdated: _refreshData),
       appBar: AppBar(
         leading: Builder(
           builder: (BuildContext context) {
@@ -199,9 +234,19 @@ class _HomePageState extends State<HomePage> {
               width: 75,
               height: 75,
             ),
-            Text(
-              _username,
-              style: const TextStyle(color: Colors.white),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _username,
+                  style: const TextStyle(color: Colors.white),
+                ),
+                Text(
+                  'Event: $_currentEventKey',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
             ),
           ],
         ),
@@ -248,32 +293,59 @@ class _HomePageState extends State<HomePage> {
                       )
                     ],
                   ),
-                  child: rankings.isNotEmpty
-                      ? ListView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          shrinkWrap: true,
-                          itemCount: rankings.length,
-                          itemBuilder: (context, index) {
-                            final ranking = rankings[index];
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.grey,
-                                child: Text('${ranking['rank']}'),
-                              ),
-                              title: Text(
-                                'Team ${ranking['team_key'].substring(3)}',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                              subtitle: Text(
-                                'Wins: ${ranking['record']['wins']} | Losses: ${ranking['record']['losses']}',
-                                style: const TextStyle(color: Colors.white70),
-                              ),
-                            );
-                          },
-                        )
-                      : const Center(
-                          child: CircularProgressIndicator(),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Text(
+                          'Rankings for Event: $_currentEventKey',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                      ),
+                      Expanded(
+                        child: rankings.isNotEmpty
+                            ? ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: rankings.length,
+                                itemBuilder: (context, index) {
+                                  final ranking = rankings[index];
+                                  return ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: Colors.grey,
+                                      child: Text('${ranking['rank']}'),
+                                    ),
+                                    title: Text(
+                                      'Team ${ranking['team_key'].substring(3)}',
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                    subtitle: Text(
+                                      'W: ${ranking['record']['wins']} | L: ${ranking['record']['losses']} | T: ${ranking['record']['ties']}',
+                                      style: const TextStyle(color: Colors.white70),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Loading rankings for $_currentEventKey...',
+                                      style: TextStyle(color: Colors.white70),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),

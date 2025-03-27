@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, duplicate_ignore, library_private_types_in_public_api
+// ignore_for_file: use_build_context_synchronously, duplicate_ignore, library_private_types_in_public_api, avoid_types_as_parameter_names
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -124,115 +124,133 @@ class _ScheduleDisplayState extends State<ScheduleDisplay> {
   String _errorMessage = '';
 
   Future<void> _generateSchedule() async {
-    if (_matches.isEmpty) {
-      setState(() {
-        _errorMessage = 'Please fetch matches first';
-      });
-      return;
-    }
-
-    if (_scoutersController.text.isEmpty) {
-      setState(() {
-        _errorMessage = 'Please enter scouter names';
-      });
-      return;
-    }
-
+  if (_matches.isEmpty) {
     setState(() {
-      _isGeneratingSchedule = true;
-      _errorMessage = '';
+      _errorMessage = 'Please fetch matches first';
+    });
+    return;
+  }
+
+  if (_scoutersController.text.isEmpty) {
+    setState(() {
+      _errorMessage = 'Please enter scouter names';
+    });
+    return;
+  }
+
+  setState(() {
+    _isGeneratingSchedule = true;
+    _errorMessage = '';
+  });
+
+  try {
+    List<String> scouterNames = _scoutersController.text
+        .split(',')
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList();
+
+    if (scouterNames.isEmpty) {
+      throw Exception('No valid scouter names provided');
+    }
+
+    Map<String, List<String>> robotMatches = {};
+    Set<String> allRobots = {};
+
+    for (var match in _matches) {
+      String matchNumber = match['match_number'].toString();
+      List<String> redTeams = (match['alliances']['red']['team_keys'] as List).cast<String>();
+      List<String> blueTeams = (match['alliances']['blue']['team_keys'] as List).cast<String>();
+      List<String> allTeams = [...redTeams, ...blueTeams];
+
+      for (String team in allTeams) {
+        allRobots.add(team);
+        robotMatches[team] ??= [];
+        robotMatches[team]!.add(matchNumber);
+      }
+    }
+
+    // Track assignments for each scouter to ensure balanced workload
+    Map<String, int> scouterAssignmentCount = {};
+    for (String scouter in scouterNames) {
+      scouterAssignmentCount[scouter] = 0;
+    }
+
+    Map<String, Set<String>> matchScouterAssignments = {};
+    List<Map<String, dynamic>> finalAssignments = [];
+
+    for (String robot in allRobots) {
+      List<String> availableMatches = List.from(robotMatches[robot]!);
+      availableMatches.sort(); // Sort by match number instead of shuffling
+      
+      int assignedCount = 0;
+      int matchIndex = 0;
+      
+      while (assignedCount < 3 && matchIndex < availableMatches.length) {
+        String matchNumber = availableMatches[matchIndex];
+        matchScouterAssignments[matchNumber] ??= {};
+
+        // Find the scouter with the lowest assignment count who isn't already assigned to this match
+        String? selectedScouter;
+        int lowestCount = double.maxFinite.toInt();
+        
+        for (String scouter in scouterNames) {
+          if (!matchScouterAssignments[matchNumber]!.contains(scouter) && 
+              (scouterAssignmentCount[scouter] ?? 0) < lowestCount) {
+            selectedScouter = scouter;
+            lowestCount = scouterAssignmentCount[scouter]!;
+          }
+        }
+
+        if (selectedScouter != null) {
+          matchScouterAssignments[matchNumber]!.add(selectedScouter);
+          scouterAssignmentCount[selectedScouter] = (scouterAssignmentCount[selectedScouter] ?? 0) + 1;
+          
+          finalAssignments.add({
+            'matchNumber': matchNumber,
+            'robotNumber': robot.replaceAll('frc', ''),
+            'scouterName': selectedScouter,
+            'timestamp': DateTime.now(),
+          });
+          assignedCount++;
+        }
+        matchIndex++;
+      }
+    }
+
+    // Print workload distribution for debugging
+    print('Scouter assignment distribution:');
+    scouterAssignmentCount.forEach((scouter, count) {
+      print('$scouter: $count assignments');
     });
 
-    try {
-      List<String> scouterNames = _scoutersController.text
-          .split(',')
-          .map((name) => name.trim())
-          .where((name) => name.isNotEmpty)
-          .toList();
-
-      if (scouterNames.isEmpty) {
-        throw Exception('No valid scouter names provided');
-      }
-
-      Map<String, List<String>> robotMatches = {};
-      Set<String> allRobots = {};
-
-      for (var match in _matches) {
-        String matchNumber = match['match_number'].toString();
-        List<String> redTeams = (match['alliances']['red']['team_keys'] as List).cast<String>();
-        List<String> blueTeams = (match['alliances']['blue']['team_keys'] as List).cast<String>();
-        List<String> allTeams = [...redTeams, ...blueTeams];
-
-        for (String team in allTeams) {
-          allRobots.add(team);
-          robotMatches[team] ??= [];
-          robotMatches[team]!.add(matchNumber);
-        }
-      }
-
-      Map<String, Set<String>> matchScouterAssignments = {};
-      List<Map<String, dynamic>> finalAssignments = [];
-
-      for (String robot in allRobots) {
-        List<String> availableMatches = List.from(robotMatches[robot]!);
-        availableMatches.shuffle(); 
-        
-        int assignedCount = 0;
-        int matchIndex = 0;
-        
-        while (assignedCount < 3 && matchIndex < availableMatches.length) {
-          String matchNumber = availableMatches[matchIndex];
-          matchScouterAssignments[matchNumber] ??= {};
-
-          String? selectedScouter;
-          for (String scouter in scouterNames) {
-            if (!matchScouterAssignments[matchNumber]!.contains(scouter)) {
-              selectedScouter = scouter;
-              break;
-            }
-          }
-
-          if (selectedScouter != null) {
-            matchScouterAssignments[matchNumber]!.add(selectedScouter);
-            finalAssignments.add({
-              'matchNumber': matchNumber,
-              'robotNumber': robot.replaceAll('frc', ''),
-              'scouterName': selectedScouter,
-              'timestamp': DateTime.now(),
-            });
-            assignedCount++;
-          }
-          matchIndex++;
-        }
-      }
-
-      WriteBatch batch = _firestore.batch();
-      
-      final existingAssignments = await _firestore.collection('scouting_assignments').get();
-      for (var doc in existingAssignments.docs) {
-        batch.delete(doc.reference);
-      }
-
-      for (var assignment in finalAssignments) {
-        DocumentReference ref = _firestore.collection('scouting_assignments').doc();
-        batch.set(ref, assignment);
-      }
-
-      await batch.commit();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Schedule generated successfully')),
-      );
-
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error generating schedule: $e';
-      });
-    } finally {
-      setState(() {
-        _isGeneratingSchedule = false;
-      });
+    WriteBatch batch = _firestore.batch();
+    
+    final existingAssignments = await _firestore.collection('scouting_assignments').get();
+    for (var doc in existingAssignments.docs) {
+      batch.delete(doc.reference);
     }
+
+    for (var assignment in finalAssignments) {
+      DocumentReference ref = _firestore.collection('scouting_assignments').doc();
+      batch.set(ref, assignment);
+    }
+
+    await batch.commit();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Schedule generated successfully')),
+    );
+
+  } catch (e) {
+    setState(() {
+      _errorMessage = 'Error generating schedule: $e';
+    });
+  } finally {
+    setState(() {
+      _isGeneratingSchedule = false;
+    });
+  }
 }
 
   Future<void> _fetchSchedule(String eventCode) async {

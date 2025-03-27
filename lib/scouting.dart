@@ -1,4 +1,4 @@
-// ignore_for_file: non_constant_identifier_names, avoid_unnecessary_containers, unused_import, unused_field, deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: non_constant_identifier_names, avoid_unnecessary_containers, unused_import, unused_field, deprecated_member_use, use_build_context_synchronously, prefer_const_constructors
 
 import 'dart:async';
 import 'dart:convert';
