@@ -1,10 +1,8 @@
-# HVA-FRC-SCOUTING2024
-
-FRC 3824's Scouting App, "ScoutinFRC"
+# HVA-FRC-SCOUTINFRC
 
 ## Short Introduction
 
-This is the repo for the HVA RoHAWKtics Scouting App "ScoutinFRC" A multi-featured scouting app created using Flutter.
+This is the repo for the HVA RoHAWKtics Scouting App "ScoutinFRC"
 
 ## Features
 
@@ -12,7 +10,7 @@ This is the repo for the HVA RoHAWKtics Scouting App "ScoutinFRC" A multi-featur
 
 -A login authenticaiton system with email, Google, and Apple services.
 
--Compatibility with both iOS and Android. 
+-Compatibility with both iOS and Android. (Soon to be on the App Store)
 
 -Custom Pit Scouting system
 
@@ -22,9 +20,10 @@ This is the repo for the HVA RoHAWKtics Scouting App "ScoutinFRC" A multi-featur
 
 ## Our links:
 
-- [Site: Visit our team's site](https://rohawktics.org/home/)
+- [Site: Visit our team's external site](https://rohawktics.org/home/)
 
-- [The Blue Alliance: Visit our page on The Blue Alliance](https://www.thebluealliance.com/team/3824)
+- [Bluealliance: Visit our page on Blue Alliance](https://www.thebluealliance.com/team/3824)
 
 
-"2024 & 2025" Edition created by Cash Egley
+"2024" Edition designed by: Cash Egley
+"2025" Edition designed by: Cash Egley
