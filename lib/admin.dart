@@ -104,11 +104,11 @@ class ScheduleDisplay extends StatefulWidget {
   final List<String> robots;
 
   const ScheduleDisplay({
-    Key? key,
+    super.key,
     required this.scouts,
     required this.matches,
     required this.robots,
-  }) : super(key: key);
+  });
 
   @override
   _ScheduleDisplayState createState() => _ScheduleDisplayState();
@@ -421,7 +421,7 @@ class _ScheduleDisplayState extends State<ScheduleDisplay> {
 }
 
 class AdminPage extends StatefulWidget {
-  const AdminPage({Key? key, required String title}) : super(key: key);
+  const AdminPage({super.key, required String title});
 
   @override
   _AdminPageState createState() => _AdminPageState();

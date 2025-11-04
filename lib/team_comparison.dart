@@ -544,7 +544,7 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
               ),
             ),
           );
-        }).toList(),
+        }),
         if (events.length > 3)
           Center(
             child: TextButton(

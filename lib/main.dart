@@ -40,7 +40,7 @@ Future<void> main() async {
 
 // Main App Widget
 class ScoutingApp extends StatelessWidget {
-  const ScoutingApp({Key? key}) : super(key: key);
+  const ScoutingApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +92,7 @@ class ScoutingApp extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key, required this.title}) : super(key: key);
+  const HomePage({super.key, required this.title});
   final String title;
 
   @override

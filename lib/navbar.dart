@@ -4,12 +4,12 @@ import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:scouting2024/auth_gate.dart' as auth;
+import 'package:scoutinfrc2/auth_gate.dart' as auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:scouting2024/team_comparison.dart' as team;
-import 'package:scouting2024/credits.dart' as credits;
+import 'package:scoutinfrc2/team_comparison.dart' as team;
+import 'package:scoutinfrc2/credits.dart' as credits;
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Function to get dark dialog theme
@@ -31,11 +31,11 @@ ThemeData getDarkDialogTheme(BuildContext context) {
     ),
     
     // Configure dialog specific theme
-    dialogTheme: DialogTheme(
-      backgroundColor: darkGray,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-    ),
+    dialogTheme: DialogThemeData(
+  backgroundColor: darkGray,
+  surfaceTintColor: Colors.transparent,
+  elevation: 0,
+),
     
     // Text button theme
     textButtonTheme: TextButtonThemeData(
@@ -234,7 +234,7 @@ Future<bool> updateEventKey(BuildContext context) async {
 class NavBar extends StatelessWidget {
   final Function? onEventKeyUpdated;
   
-  const NavBar({Key? key, this.onEventKeyUpdated}) : super(key: key);
+  const NavBar({super.key, this.onEventKeyUpdated});
 
   @override
   Widget build(BuildContext context) {

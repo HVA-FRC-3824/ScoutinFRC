@@ -1,1 +1,0 @@
--keep class com.First3824.scouting.MainActivity { *; }

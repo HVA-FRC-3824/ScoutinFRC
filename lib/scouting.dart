@@ -199,7 +199,7 @@ class _ScoutingPageState extends State<ScoutingPage> {
 }
 
 class MatchNumPage extends StatefulWidget {
-  const MatchNumPage({Key? key, required this.title, required this.matchData}) : super(key: key);
+  const MatchNumPage({super.key, required this.title, required this.matchData});
 
   final String title;
   final dynamic matchData;
