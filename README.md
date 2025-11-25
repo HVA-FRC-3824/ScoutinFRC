@@ -1,16 +1,26 @@
-# scoutinfrc2
+## HVA-FRC-SCOUTINFRC
+Short Introduction
 
-A new Flutter project.
+This is the repo for the HVA RoHAWKtics Scouting App "ScoutinFRC"
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+-A custom built data collection system through Firebase.
 
-A few resources to get you started if this is your first Flutter project:
+-A login authenticaiton system with email, Google, and Apple services.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+-Compatibility with both iOS and Android. (Soon to be on the App Store)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+-Custom Pit Scouting system
+
+-Schedule system with data provided by The Blue Alliance
+
+-Analytics page to lookup any bot on The Blue Alliance
+
+## Our links:
+
+    Site: Visit our team's external site
+
+    Bluealliance: Visit our page on Blue Alliance
+
+"2024" Edition designed by: Cash Egley "2025" Edition designed by: Cash Egley
