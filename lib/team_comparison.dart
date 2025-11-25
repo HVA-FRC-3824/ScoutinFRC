@@ -1,13 +1,11 @@
-// ignore_for_file: unused_import, depend_on_referenced_packages, library_private_types_in_public_api, use_build_context_synchronously
-
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:http/http.dart' as http;
-import 'package:firebase_database/firebase_database.dart';
+import 'dart:convert';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:developer' as developer;
+import 'services/data_service.dart';
 
 class TeamComparisonScreen extends StatefulWidget {
   const TeamComparisonScreen({super.key});
@@ -30,16 +28,14 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
   List<dynamic>? _team1Media;
   List<dynamic>? _team2Media;
   
-  String _currentEventKey = "2025alhu"; // Default event key
+  List<Map<String, dynamic>> _team1ScoutingData = [];
+  List<Map<String, dynamic>> _team2ScoutingData = [];
+  
+  Map<String, double> _team1Metrics = {};
+  Map<String, double> _team2Metrics = {};
+
   bool _isLoading = false;
-  
-  // Firebase scouting data
-  List<Map<Object?, Object?>> _team1ScoutingData = [];
-  List<Map<Object?, Object?>> _team2ScoutingData = [];
-  
-  // Performance metrics
-  Map<String, dynamic> _team1Metrics = {};
-  Map<String, dynamic> _team2Metrics = {};
+  String _currentEventKey = '2025alhu'; 
 
   @override
   void initState() {
@@ -359,8 +355,8 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
             
             _buildPerformanceRow(
               'Climb Success Rate', 
-              '${(_team1Metrics['climbSuccessRate'] * 100).toStringAsFixed(0)}%', 
-              '${(_team2Metrics['climbSuccessRate'] * 100).toStringAsFixed(0)}%',
+              '${(_team1Metrics['climbSuccessRate']! * 100).toStringAsFixed(0)}%', 
+              '${(_team2Metrics['climbSuccessRate']! * 100).toStringAsFixed(0)}%',
               Icons.trending_up
             ),
             
@@ -686,7 +682,7 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
     if (_team1ScoutingData.isNotEmpty) {
       for (int i = 0; i < _team1ScoutingData.length; i++) {
         final match = _team1ScoutingData[i];
-        final matchNumber = match['match_number'] as int? ?? i + 1;
+        final matchNumber = int.tryParse(match['match_number']?.toString() ?? '') ?? (i + 1);
         final score = _calculateTotalScore(match);
         
         team1Spots.add(FlSpot(matchNumber.toDouble(), score.toDouble()));
@@ -700,7 +696,7 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
     if (_team2ScoutingData.isNotEmpty) {
       for (int i = 0; i < _team2ScoutingData.length; i++) {
         final match = _team2ScoutingData[i];
-        final matchNumber = match['match_number'] as int? ?? i + 1;
+        final matchNumber = int.tryParse(match['match_number']?.toString() ?? '') ?? (i + 1);
         final score = _calculateTotalScore(match);
         
         team2Spots.add(FlSpot(matchNumber.toDouble(), score.toDouble()));
@@ -861,16 +857,16 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
             
             // Data rows
             _buildStatRow('Total Matches', 
-                _team1Metrics['avgTeleopCoral']?.toStringAsFixed(1) ?? 'N/A', 
-                _team2Metrics['avgTeleopCoral']?.toStringAsFixed(1) ?? 'N/A'),
+                _team1ScoutingData.length.toString(), 
+                _team2ScoutingData.length.toString()),
             
             _buildStatRow('Algae Accuracy', 
-                '${(_team1Metrics['algaeAccuracy'] * 100).toStringAsFixed(0)}%', 
-                '${(_team2Metrics['algaeAccuracy'] * 100).toStringAsFixed(0)}%'),
+                '${(_team1Metrics['algaeAccuracy']! * 100).toStringAsFixed(0)}%', 
+                '${(_team2Metrics['algaeAccuracy']! * 100).toStringAsFixed(0)}%'),
             
             _buildStatRow('Deep Climb Rate', 
-                '${(_team1Metrics['deepClimbRate'] * 100).toStringAsFixed(0)}%', 
-                '${(_team2Metrics['deepClimbRate'] * 100).toStringAsFixed(0)}%'),
+                '${(_team1Metrics['deepClimbRate']! * 100).toStringAsFixed(0)}%', 
+                '${(_team2Metrics['deepClimbRate']! * 100).toStringAsFixed(0)}%'),
                 
             _buildStatRow('Floor/Station Cycles', 
                 _team1Metrics['avgFloorStationCycles']?.toStringAsFixed(1) ?? 'N/A', 
@@ -972,7 +968,7 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
         // Fetch TBA data
         _fetchTBAData(team1Key, team2Key),
         
-        // Fetch scouting data from Firebase
+        // Fetch scouting data from DataService
         _fetchScoutingData(team1Num, team2Num),
       ]);
       
@@ -986,12 +982,12 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
       
       // Scroll to top of the comparison view
       if (_scrollController.hasClients) {
-  _scrollController.animateTo(
-    0,
-    duration: const Duration(milliseconds: 300),
-    curve: Curves.easeOut,
-  );
-}
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     } catch (e) {
       developer.log('Error in comparison: $e');
       setState(() {
@@ -1036,120 +1032,32 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
       });
     } catch (e) {
       developer.log('Error fetching TBA data: $e');
-      rethrow;
+      // Continue even if TBA data fails, we might still have scouting data
     }
   }
-  
+
   Future<void> _fetchScoutingData(String team1Num, String team2Num) async {
     try {
-      final dbRef = FirebaseDatabase.instance.ref('$_currentEventKey/matches');
-      final snapshot = await dbRef.get();
+      final team1Matches = await DataService().getTeamData(team1Num, _currentEventKey);
+      final team2Matches = await DataService().getTeamData(team2Num, _currentEventKey);
       
-      if (snapshot.exists) {
-        final List<Map<Object?, Object?>> team1Matches = [];
-        final List<Map<Object?, Object?>> team2Matches = [];
-        
-        // Handle the snapshot value which could be a Map or a List
-        if (snapshot.value is Map<Object?, Object?>) {
-          final allMatches = snapshot.value as Map<Object?, Object?>;
-          
-          allMatches.forEach((matchId, matchData) {
-            _processMatchDataForTeam(matchId, matchData, team1Num, team2Num, team1Matches, team2Matches);
-          });
-        } else if (snapshot.value is List<Object?>) {
-          final allMatches = snapshot.value as List<Object?>;
-          
-          for (int i = 0; i < allMatches.length; i++) {
-            if (allMatches[i] != null) {
-              _processMatchDataForTeam(i.toString(), allMatches[i], team1Num, team2Num, team1Matches, team2Matches);
-            }
-          }
-        }
-        
-        setState(() {
-          _team1ScoutingData = team1Matches;
-          _team2ScoutingData = team2Matches;
-        });
-      }
+      setState(() {
+        _team1ScoutingData = team1Matches;
+        _team2ScoutingData = team2Matches;
+      });
     } catch (e) {
       developer.log('Error fetching scouting data: $e');
-      // Don't rethrow here to allow TBA data to still be shown
     }
   }
-  
-  void _processMatchDataForTeam(
-      Object? matchId, 
-      Object? matchData, 
-      String team1Num, 
-      String team2Num,
-      List<Map<Object?, Object?>> team1Matches,
-      List<Map<Object?, Object?>> team2Matches) {
-    
-    if (matchData == null) return;
-    
-    // Process as Map
-    if (matchData is Map<Object?, Object?>) {
-      // Check direct match data
-      _checkTeamMatch(matchData, matchId, team1Num, team2Num, team1Matches, team2Matches);
-      
-      // Check nested team data
-      matchData.forEach((key, value) {
-        if (value is Map<Object?, Object?>) {
-          _checkTeamMatch(value, matchId, team1Num, team2Num, team1Matches, team2Matches);
-        }
-      });
-    }
-    // Process as List
-    else if (matchData is List<Object?>) {
-      for (var item in matchData) {
-        if (item is Map<Object?, Object?>) {
-          _checkTeamMatch(item, matchId, team1Num, team2Num, team1Matches, team2Matches);
-        }
-      }
-    }
-  }
-  
-  void _checkTeamMatch(
-      Map<Object?, Object?> data, 
-      Object? matchId, 
-      String team1Num, 
-      String team2Num,
-      List<Map<Object?, Object?>> team1Matches,
-      List<Map<Object?, Object?>> team2Matches) {
-    
-    final teamNum = data['robotNum']?.toString() ?? '';
-    
-    // Calculate match number
-    int matchNum = 0;
-    if (data['matchNum'] != null) {
-      matchNum = int.tryParse(data['matchNum'].toString()) ?? 0;
-    } else if (matchId is String) {
-      matchNum = int.tryParse(matchId) ?? 0;
-    }
-    
-    // Create match data object
-    final matchData = {
-      'match_id': matchId,
-      'match_number': matchNum,
-      'auto': data['auto'],
-      'teleop': data['teleop'],
-      'endgame': data['endgame'],
-    };
-    
-    // Add to appropriate team's matches
-    if (teamNum == team1Num) {
-      team1Matches.add(matchData);
-    } else if (teamNum == team2Num) {
-      team2Matches.add(matchData);
-    }
-  }
-  
+
   void _calculateTeamMetrics() {
-    _team1Metrics = _calculateMetricsForTeam(_team1ScoutingData);
-    _team2Metrics = _calculateMetricsForTeam(_team2ScoutingData);
+    setState(() {
+      _team1Metrics = _calculateMetrics(_team1ScoutingData);
+      _team2Metrics = _calculateMetrics(_team2ScoutingData);
+    });
   }
-  
-  Map<String, dynamic> _calculateMetricsForTeam(List<Map<Object?, Object?>> matches) {
+
+  Map<String, double> _calculateMetrics(List<Map<String, dynamic>> matches) {
     if (matches.isEmpty) {
       return {
         'avgScore': 0.0,
@@ -1233,199 +1141,6 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
       'avgFloorStationCycles': totalFloorStationCycles / count,
     };
   }
-  
-  double _calculateAlgaeAccuracy(Map<Object?, Object?> match) {
-    try {
-      final auto = match['auto'] as Map<Object?, Object?>?;
-      final teleop = match['teleop'] as Map<Object?, Object?>?;
-      
-      if (auto == null || teleop == null) return 0.0;
-      
-      int totalScore = 0;
-      int totalMisses = 0;
-      
-      // Auto algae
-      if (auto['algae'] is Map) {
-        final algae = auto['algae'] as Map<Object?, Object?>;
-        totalScore += int.tryParse(algae['score']?.toString() ?? '0') ?? 0;
-        totalMisses += int.tryParse(algae['miss']?.toString() ?? '0') ?? 0;
-      }
-      
-      // Teleop algae
-      if (teleop['algae'] is Map) {
-        final algae = teleop['algae'] as Map<Object?, Object?>;
-        totalScore += int.tryParse(algae['score']?.toString() ?? '0') ?? 0;
-        totalMisses += int.tryParse(algae['miss']?.toString() ?? '0') ?? 0;
-      }
-      
-      final total = totalScore + totalMisses;
-      return total > 0 ? totalScore / total : 0.0;
-    } catch (e) {
-      return 0.0;
-    }
-  }
-  
-  int _calculateAutoCoralScore(Map<Object?, Object?> match) {
-    try {
-      final auto = match['auto'] as Map<Object?, Object?>?;
-      if (auto == null) return 0;
-      
-      int score = 0;
-      
-      if (auto['coral'] is Map) {
-        final coral = auto['coral'] as Map<Object?, Object?>;
-        final levels = {'L1': 4, 'L2': 5, 'L3': 6, 'L4': 7};
-        
-        for (var level in levels.keys) {
-          if (coral[level] is Map) {
-            final levelData = coral[level] as Map<Object?, Object?>;
-            final levelScore = int.tryParse(levelData['score']?.toString() ?? '0') ?? 0;
-            score += levelScore * (levels[level] ?? 0);
-          }
-        }
-      }
-      
-      return score;
-    } catch (e) {
-      return 0;
-    }
-  }
-  
-  int _calculateTeleopCoralScore(Map<Object?, Object?> match) {
-    try {
-      final teleop = match['teleop'] as Map<Object?, Object?>?;
-      if (teleop == null) return 0;
-      
-      int score = 0;
-      
-      if (teleop['coral'] is Map) {
-        final coral = teleop['coral'] as Map<Object?, Object?>;
-        final levels = {'L1': 2, 'L2': 3, 'L3': 4, 'L4': 5};
-        
-        for (var level in levels.keys) {
-          if (coral[level] is Map) {
-            final levelData = coral[level] as Map<Object?, Object?>;
-            final levelScore = int.tryParse(levelData['score']?.toString() ?? '0') ?? 0;
-            score += levelScore * (levels[level] ?? 0);
-          }
-        }
-      }
-      
-      return score;
-    } catch (e) {
-      return 0;
-    }
-  }
-  
-  int _calculateFloorStationCycles(Map<Object?, Object?> match) {
-    try {
-      final auto = match['auto'] as Map<Object?, Object?>?;
-      final teleop = match['teleop'] as Map<Object?, Object?>?;
-      
-      if (auto == null || teleop == null) return 0;
-      
-      int total = 0;
-      
-      // Auto floor/station
-      if (auto['floorStation'] is Map) {
-        final fs = auto['floorStation'] as Map<Object?, Object?>;
-        total += int.tryParse(fs['floor']?.toString() ?? '0') ?? 0;
-        total += int.tryParse(fs['station']?.toString() ?? '0') ?? 0;
-      }
-      
-      // Teleop floor/station
-      if (teleop['floorStation'] is Map) {
-        final fs = teleop['floorStation'] as Map<Object?, Object?>;
-        total += int.tryParse(fs['floor']?.toString() ?? '0') ?? 0;
-        total += int.tryParse(fs['station']?.toString() ?? '0') ?? 0;
-      }
-      
-      return total;
-    } catch (e) {
-      return 0;
-    }
-  }
-  
-  int _calculateAutoScore(Map<Object?, Object?> match) {
-    try {
-      final auto = match['auto'] as Map<Object?, Object?>?;
-      if (auto == null) return 0;
-      
-      int autoCoral = _calculateAutoCoralScore(match);
-      
-      int algae = 0;
-      if (auto['algae'] is Map) {
-        final algaeData = auto['algae'] as Map<Object?, Object?>;
-        final isProcessor = algaeData['isProcessor']?.toString().toLowerCase() == 'true';
-        final score = int.tryParse(algaeData['score']?.toString() ?? '0') ?? 0;
-        algae += score * (isProcessor ? 6 : 4);
-      }
-      
-      int floorStation = 0;
-      if (auto['floorStation'] is Map) {
-        final fsData = auto['floorStation'] as Map<Object?, Object?>;
-        final floor = int.tryParse(fsData['floor']?.toString() ?? '0') ?? 0;
-        final station = int.tryParse(fsData['station']?.toString() ?? '0') ?? 0;
-        floorStation += floor * 2;
-        floorStation += station * 3;
-      }
-      
-      return autoCoral + algae + floorStation;
-    } catch (e) {
-      return 0;
-    }
-  }
-  
-  int _calculateTeleopScore(Map<Object?, Object?> match) {
-    try {
-      final teleop = match['teleop'] as Map<Object?, Object?>?;
-      final endgame = match['endgame'] as Map<Object?, Object?>?;
-      
-      if (teleop == null || endgame == null) return 0;
-      
-      int teleopCoral = _calculateTeleopCoralScore(match);
-      
-      int algae = 0;
-      if (teleop['algae'] is Map) {
-        final algaeData = teleop['algae'] as Map<Object?, Object?>;
-        final isProcessor = algaeData['isProcessor']?.toString().toLowerCase() == 'true';
-        final score = int.tryParse(algaeData['score']?.toString() ?? '0') ?? 0;
-        algae += score * (isProcessor ? 6 : 4);
-      }
-      
-      int floorStation = 0;
-      if (teleop['floorStation'] is Map) {
-        final fsData = teleop['floorStation'] as Map<Object?, Object?>;
-        final floor = int.tryParse(fsData['floor']?.toString() ?? '0') ?? 0;
-        final station = int.tryParse(fsData['station']?.toString() ?? '0') ?? 0;
-        floorStation += floor;
-        floorStation += station * 2;
-      }
-      
-      int climbPoints = 0;
-      final climbStatus = endgame['cageParkStatus']?.toString().toLowerCase() ?? '';
-      final failed = endgame['failed'] == true || 
-                    endgame['failed']?.toString().toLowerCase() == 'true';
-      
-      if (!failed) {
-        if (climbStatus.contains('park')) {
-          climbPoints = 2;
-        } else if (climbStatus.contains('shallow')) {
-          climbPoints = 6;
-        } else if (climbStatus.contains('deep')) {
-          climbPoints = 12;
-        }
-      }
-      
-      return teleopCoral + algae + floorStation + climbPoints;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  int _calculateTotalScore(Map<Object?, Object?> match) {
-    return _calculateAutoScore(match) + _calculateTeleopScore(match);
-  }
 
   Future<Map<String, dynamic>> _getTeamData(String teamKey) async {
     final response = await http.get(
@@ -1482,5 +1197,163 @@ class _TeamComparisonScreenState extends State<TeamComparisonScreen> {
     } else {
       throw Exception('Failed to load media for team $teamKey: ${response.statusCode}');
     }
+  }
+
+  int _calculateTotalScore(Map<String, dynamic> match) {
+    return _calculateAutoScore(match) + _calculateTeleopScore(match);
+  }
+
+  int _calculateAutoScore(Map<String, dynamic> match) {
+    final auto = match['auto'] as Map<Object?, Object?>?;
+    if (auto == null) return 0;
+    
+    int score = 0;
+    
+    // Coral
+    score += _calculateAutoCoralScore(match);
+    
+    // Algae
+    if (auto['algae'] is Map) {
+      final algaeData = auto['algae'] as Map<Object?, Object?>;
+      final isProcessor = algaeData['isProcessor']?.toString().toLowerCase() == 'true';
+      int algaeScore = int.tryParse(algaeData['score']?.toString() ?? '0') ?? 0;
+      score += algaeScore * (isProcessor ? 6 : 4);
+    }
+    
+    // Floor/Station
+    if (auto['floorStation'] is Map) {
+      final fsData = auto['floorStation'] as Map<Object?, Object?>;
+      int floor = int.tryParse(fsData['floor']?.toString() ?? '0') ?? 0;
+      int station = int.tryParse(fsData['station']?.toString() ?? '0') ?? 0;
+      score += floor * 2;
+      score += station * 3;
+    }
+    
+    return score;
+  }
+
+  int _calculateTeleopScore(Map<String, dynamic> match) {
+    final teleop = match['teleop'] as Map<Object?, Object?>?;
+    final endgame = match['endgame'] as Map<Object?, Object?>?;
+    if (teleop == null) return 0;
+    
+    int score = 0;
+    
+    // Coral
+    score += _calculateTeleopCoralScore(match);
+    
+    // Algae
+    if (teleop['algae'] is Map) {
+      final algaeData = teleop['algae'] as Map<Object?, Object?>;
+      final isProcessor = algaeData['isProcessor']?.toString().toLowerCase() == 'true';
+      int algaeScore = int.tryParse(algaeData['score']?.toString() ?? '0') ?? 0;
+      score += algaeScore * (isProcessor ? 6 : 4);
+    }
+    
+    // Floor/Station
+    if (teleop['floorStation'] is Map) {
+      final fsData = teleop['floorStation'] as Map<Object?, Object?>;
+      int floor = int.tryParse(fsData['floor']?.toString() ?? '0') ?? 0;
+      int station = int.tryParse(fsData['station']?.toString() ?? '0') ?? 0;
+      score += floor;
+      score += station * 2;
+    }
+    
+    // Endgame
+    if (endgame != null) {
+      final climbStatus = endgame['cageParkStatus']?.toString().toLowerCase() ?? '';
+      if (climbStatus.contains('park')) {
+        score += 2;
+      } else if (climbStatus.contains('shallow')) {
+        score += 6;
+      } else if (climbStatus.contains('deep')) {
+        score += 12;
+      }
+    }
+    
+    return score;
+  }
+
+  int _calculateAutoCoralScore(Map<String, dynamic> match) {
+    final auto = match['auto'] as Map<Object?, Object?>?;
+    if (auto == null || auto['coral'] is! Map) return 0;
+    
+    int score = 0;
+    final coralData = auto['coral'] as Map<Object?, Object?>;
+    final autoCoralPoints = {'L4': 7, 'L3': 6, 'L2': 5, 'L1': 4};
+    
+    for (var level in ['L1', 'L2', 'L3', 'L4']) {
+      if (coralData[level] is Map) {
+        final levelData = coralData[level] as Map<Object?, Object?>;
+        int count = int.tryParse(levelData['score']?.toString() ?? '0') ?? 0;
+        score += count * (autoCoralPoints[level] ?? 0);
+      }
+    }
+    return score;
+  }
+
+  int _calculateTeleopCoralScore(Map<String, dynamic> match) {
+    final teleop = match['teleop'] as Map<Object?, Object?>?;
+    if (teleop == null || teleop['coral'] is! Map) return 0;
+    
+    int score = 0;
+    final coralData = teleop['coral'] as Map<Object?, Object?>;
+    final teleopCoralPoints = {'L4': 5, 'L3': 4, 'L2': 3, 'L1': 2};
+    
+    for (var level in ['L1', 'L2', 'L3', 'L4']) {
+      if (coralData[level] is Map) {
+        final levelData = coralData[level] as Map<Object?, Object?>;
+        int count = int.tryParse(levelData['score']?.toString() ?? '0') ?? 0;
+        score += count * (teleopCoralPoints[level] ?? 0);
+      }
+    }
+    return score;
+  }
+
+  double _calculateAlgaeAccuracy(Map<String, dynamic> match) {
+    int attempts = 0;
+    int scored = 0;
+    
+    final auto = match['auto'] as Map<Object?, Object?>?;
+    final teleop = match['teleop'] as Map<Object?, Object?>?;
+    
+    if (auto != null && auto['algae'] is Map) {
+      final algae = auto['algae'] as Map<Object?, Object?>;
+      int s = int.tryParse(algae['score']?.toString() ?? '0') ?? 0;
+      int m = int.tryParse(algae['miss']?.toString() ?? '0') ?? 0;
+      scored += s;
+      attempts += s + m;
+    }
+    
+    if (teleop != null && teleop['algae'] is Map) {
+      final algae = teleop['algae'] as Map<Object?, Object?>;
+      int s = int.tryParse(algae['score']?.toString() ?? '0') ?? 0;
+      int m = int.tryParse(algae['miss']?.toString() ?? '0') ?? 0;
+      scored += s;
+      attempts += s + m;
+    }
+    
+    return attempts > 0 ? scored / attempts : 0.0;
+  }
+
+  double _calculateFloorStationCycles(Map<String, dynamic> match) {
+    int cycles = 0;
+    
+    final auto = match['auto'] as Map<Object?, Object?>?;
+    final teleop = match['teleop'] as Map<Object?, Object?>?;
+    
+    if (auto != null && auto['floorStation'] is Map) {
+      final fs = auto['floorStation'] as Map<Object?, Object?>;
+      cycles += int.tryParse(fs['floor']?.toString() ?? '0') ?? 0;
+      cycles += int.tryParse(fs['station']?.toString() ?? '0') ?? 0;
+    }
+    
+    if (teleop != null && teleop['floorStation'] is Map) {
+      final fs = teleop['floorStation'] as Map<Object?, Object?>;
+      cycles += int.tryParse(fs['floor']?.toString() ?? '0') ?? 0;
+      cycles += int.tryParse(fs['station']?.toString() ?? '0') ?? 0;
+    }
+    
+    return cycles.toDouble();
   }
 }

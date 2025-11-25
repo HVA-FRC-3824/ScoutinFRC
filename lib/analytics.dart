@@ -1,139 +1,64 @@
-// ignore_for_file: use_build_context_synchronously, unused_local_variable
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'dart:developer' as developer;
-import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-Color _getClimbColor(int index) {
-  switch (index) {
-    case 0: return Colors.blue; 
-    case 1: return Colors.green; 
-    case 2: return Colors.purple; 
-    case 3: return Colors.red; 
-    default: return Colors.grey; 
-  }
-}
+import 'dart:developer' as developer;
+import 'services/data_service.dart';
+import 'navbar.dart';
 
 class AnalyticsPage extends StatefulWidget {
-  const AnalyticsPage({super.key, required String title});
+  const AnalyticsPage({super.key, required this.title});
+  final String title;
 
   @override
   State<AnalyticsPage> createState() => _AnalyticsPageState();
 }
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
-  final _teamController = TextEditingController();
-  final _eventKeyController = TextEditingController();
-  late DatabaseReference _dbRef;
-  List<Map<Object?, Object?>> _matches = [];
+  final TextEditingController _eventKeyController = TextEditingController();
+  final TextEditingController _teamController = TextEditingController();
+  String _currentEventKey = '2025alhu';
+  List<Map<String, dynamic>> _matches = [];
   List<FlSpot> _chartSpots = [];
   bool _isLoading = false;
-  bool _isInitialized = false;
   bool _showAverages = false;
-  String _currentEventKey = '2025alhu'; // Default event key
 
   @override
   void initState() {
     super.initState();
-    _loadPreferences();
-    _initializeFirebase();
+    _loadEventKey();
   }
 
-  Future<void> _loadPreferences() async {
+  Future<void> _loadEventKey() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedEventKey = prefs.getString('lastEventKey');
+      final savedEventKey = prefs.getString('eventKey');
       if (savedEventKey != null && savedEventKey.isNotEmpty) {
         setState(() {
           _currentEventKey = savedEventKey;
           _eventKeyController.text = savedEventKey;
         });
-        developer.log('Loaded saved event key: $_currentEventKey');
-      } else {
-        _eventKeyController.text = _currentEventKey;
       }
     } catch (e) {
-      developer.log('Error loading preferences: $e');
-      _eventKeyController.text = _currentEventKey;
-    }
-  }
-
-  Future<void> _savePreferences() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('lastEventKey', _currentEventKey);
-    } catch (e) {
-      developer.log('Error saving preferences: $e');
-    }
-  }
-
-  Future<void> _initializeFirebase() async {
-    try {
-      developer.log('Initializing Firebase...');
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
-      }
-      _dbRef = FirebaseDatabase.instance.ref('$_currentEventKey/matches');
-      setState(() {
-        _isInitialized = true;
-      });
-      developer.log('Firebase initialized successfully with event key: $_currentEventKey');
-    } catch (e) {
-      developer.log('Firebase initialization error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Firebase Init Error: $e')),
-        );
-      }
+      developer.log('Error loading event key: $e');
     }
   }
 
   Future<void> _updateEventKey() async {
-    final newEventKey = _eventKeyController.text.trim();
-    if (newEventKey.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Event key cannot be empty')),
-      );
-      return;
-    }
-
-    setState(() {
-      _currentEventKey = newEventKey;
-      _isLoading = true;
-    });
-
-    try {
-      _dbRef = FirebaseDatabase.instance.ref('$_currentEventKey/matches');
-      await _savePreferences();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Event key updated to $_currentEventKey')),
-      );
-    } catch (e) {
-      developer.log('Error updating event key: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating event key: $e')),
-      );
-    } finally {
+    final newKey = _eventKeyController.text.trim();
+    if (newKey.isNotEmpty) {
       setState(() {
-        _isLoading = false;
+        _currentEventKey = newKey;
       });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('eventKey', newKey);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Event key updated to $newKey')),
+      );
     }
   }
 
   Future<void> _fetchTeamData() async {
     final teamNumber = _teamController.text.trim();
-    developer.log('Fetching data for team: $teamNumber in event: $_currentEventKey');
-    
-    if (!_isInitialized) {
-      developer.log('Firebase not initialized');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Firebase not initialized')),
-      );
-      return;
-    }
-
     if (teamNumber.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a team number')),
@@ -143,247 +68,69 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
     setState(() {
       _isLoading = true;
+      _matches = [];
+      _chartSpots = [];
       _showAverages = false;
     });
-    
+
     try {
-      // Ensure we're using the current event key
-      _dbRef = FirebaseDatabase.instance.ref('$_currentEventKey/matches');
-      developer.log('Fetching from path: ${_dbRef.path}');
+      final matches = await DataService().getTeamData(teamNumber, _currentEventKey);
       
-      final snapshot = await _dbRef.get();
-      developer.log('Snapshot received. Exists: ${snapshot.exists}');
-      
-      if (snapshot.exists) {
-        // Handle the snapshot value carefully, checking its type first
-        final snapshotValue = snapshot.value;
-        developer.log('Snapshot type: ${snapshotValue.runtimeType}');
-        
-        final teamMatches = <Map<Object?, Object?>>[];
-
-        // Handle the case where the value might be a List or a Map
-        if (snapshotValue is Map<Object?, Object?>) {
-          developer.log('Processing snapshot as Map');
-          final allMatches = snapshotValue;
-          
-          allMatches.forEach((matchId, matchData) {
-            _processMatchData(teamNumber, matchId, matchData, teamMatches);
-          });
-        } else if (snapshotValue is List<Object?>) {
-          developer.log('Processing snapshot as List');
-          // Handle list format - index will be the match number
-          for (int i = 0; i < snapshotValue.length; i++) {
-            if (snapshotValue[i] != null) {
-              _processMatchData(teamNumber, i.toString(), snapshotValue[i], teamMatches);
-            }
-          }
-        } else {
-          developer.log('Unexpected data format: ${snapshotValue.runtimeType}');
-          setState(() {
-            _isLoading = false;
-            _showAverages = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Unexpected data format from database')),
-          );
-          return;
-        }
-
-        developer.log('Found ${teamMatches.length} matches for team $teamNumber');
-        
-        if (teamMatches.isNotEmpty) {
-          teamMatches.sort((a, b) {
-            final aNum = (a['match_number'] ?? 0) as int;
-            final bNum = (b['match_number'] ?? 0) as int;
-            return aNum.compareTo(bNum);
-          });
-          
-          final chartSpots = teamMatches.map((match) {
-            final score = _calculateTotalScore(match);
-            return FlSpot(
-              (match['match_number'] as int).toDouble(),
-              score.toDouble(),
-            );
-          }).toList();
-
-          setState(() {
-            _matches = teamMatches;
-            _chartSpots = chartSpots;
-            _isLoading = false;
-            _showAverages = true;
-          });
-        } else {
-          setState(() {
-            _matches = [];
-            _chartSpots = [];
-            _isLoading = false;
-            _showAverages = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('No data found for team $teamNumber in event $_currentEventKey')),
-          );
-        }
-      } else {
+      if (matches.isEmpty) {
         setState(() {
-          _matches = [];
-          _chartSpots = [];
           _isLoading = false;
-          _showAverages = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No data available for event $_currentEventKey')),
+          const SnackBar(content: Text('No data found for this team')),
         );
+        return;
       }
-    } catch (e, stackTrace) {
-      developer.log('Error fetching data', error: e, stackTrace: stackTrace);
-      setState(() => _isLoading = false);
+
+      final List<FlSpot> spots = [];
+      for (var match in matches) {
+        final matchNum = int.tryParse(match['match_number']?.toString() ?? '0') ?? 0;
+        final score = _calculateTotalScore(match);
+        spots.add(FlSpot(matchNum.toDouble(), score.toDouble()));
+      }
+
+      // Sort spots by match number
+      spots.sort((a, b) => a.x.compareTo(b.x));
+
+      setState(() {
+        _matches = matches;
+        _chartSpots = spots;
+        _showAverages = true;
+        _isLoading = false;
+      });
+    } catch (e) {
+      developer.log('Error fetching team data: $e');
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Error loading data: $e')),
       );
     }
   }
 
-  // Helper method to process match data and add to teamMatches if it contains the team
-  void _processMatchData(String teamNumber, Object? matchId, Object? matchData, List<Map<Object?, Object?>> teamMatches) {
-    if (matchData == null) return;
-    
-    // First try to process as a Map
-    if (matchData is Map<Object?, Object?>) {
-      // Check if the team data is directly at this level
-      if (matchData['robotNum']?.toString() == teamNumber) {
-        developer.log('Found direct match for team $teamNumber in match $matchId');
-        
-        var matchNum = 0;
-        if (matchData['matchNum'] != null) {
-          matchNum = int.tryParse(matchData['matchNum'].toString()) ?? 0;
-        } else if (matchId is String) {
-          // Try to extract match number from the match ID if it's not in the match data
-          final matchIdNum = int.tryParse(matchId.toString()) ?? 0;
-          if (matchIdNum > 0) matchNum = matchIdNum;
-        }
-        
-        teamMatches.add({
-          'match_id': matchId,
-          'match_number': matchNum,
-          'auto': matchData['auto'],
-          'teleop': matchData['teleop'],
-          'endgame': matchData['endgame'],
-        });
-      } else {
-        // If not found at this level, look through child objects
-        matchData.forEach((key, value) {
-          if (value is Map<Object?, Object?>) {
-            // Check if this is the team we're looking for
-            if (value['robotNum']?.toString() == teamNumber) {
-              developer.log('Found nested data for team $teamNumber in match $matchId, key $key');
-
-              var matchNum = 0;
-              if (value['matchNum'] != null) {
-                matchNum = int.tryParse(value['matchNum'].toString()) ?? 0;
-              } else if (matchData['matchNum'] != null) {
-                matchNum = int.tryParse(matchData['matchNum'].toString()) ?? 0;
-              } else if (matchId is String) {
-                // Try to extract match number from the match ID
-                final matchIdNum = int.tryParse(matchId.toString()) ?? 0;
-                if (matchIdNum > 0) matchNum = matchIdNum;
-              }
-
-              teamMatches.add({
-                'match_id': matchId,
-                'match_number': matchNum,
-                'auto': value['auto'],
-                'teleop': value['teleop'],
-                'endgame': value['endgame'],
-              });
-            }
-          } else if (value is List<Object?>) {
-            // Handle the case where the value is a List
-            for (int i = 0; i < value.length; i++) {
-              final item = value[i];
-              if (item is Map<Object?, Object?> && item['robotNum']?.toString() == teamNumber) {
-                developer.log('Found team $teamNumber in List at index $i in match $matchId');
-                
-                var matchNum = 0;
-                if (item['matchNum'] != null) {
-                  matchNum = int.tryParse(item['matchNum'].toString()) ?? 0;
-                } else if (matchId is String) {
-                  // Try to extract match number from the match ID
-                  final matchIdNum = int.tryParse(matchId.toString()) ?? 0;
-                  if (matchIdNum > 0) matchNum = matchIdNum;
-                }
-                
-                teamMatches.add({
-                  'match_id': matchId,
-                  'match_number': matchNum,
-                  'auto': item['auto'],
-                  'teleop': item['teleop'],
-                  'endgame': item['endgame'],
-                });
-              }
-            }
-          }
-        });
-      }
-    } else if (matchData is List<Object?>) {
-      // If matchData itself is a list, go through each item
-      for (int i = 0; i < matchData.length; i++) {
-        final item = matchData[i];
-        if (item is Map<Object?, Object?>) {
-          if (item['robotNum']?.toString() == teamNumber) {
-            developer.log('Found team $teamNumber in List at index $i in match $matchId');
-            
-            var matchNum = 0;
-            if (item['matchNum'] != null) {
-              matchNum = int.tryParse(item['matchNum'].toString()) ?? 0;
-            } else if (matchId is String) {
-              // Try to extract match number from the match ID
-              final matchIdNum = int.tryParse(matchId.toString()) ?? 0;
-              if (matchIdNum > 0) matchNum = matchIdNum;
-            }
-            
-            teamMatches.add({
-              'match_id': matchId,
-              'match_number': matchNum,
-              'auto': item['auto'],
-              'teleop': item['teleop'],
-              'endgame': item['endgame'],
-            });
-          }
-        }
-      }
-    }
-  }
-
-  int _calculateTotalScore(Map<Object?, Object?> match) {
+  int _calculateTotalScore(Map<String, dynamic> match) {
     try {
       final auto = match['auto'] as Map<Object?, Object?>?;
       final teleop = match['teleop'] as Map<Object?, Object?>?;
       final endgame = match['endgame'] as Map<Object?, Object?>?;
 
       if (auto == null || teleop == null || endgame == null) {
-        developer.log('Missing data sections: auto=${auto != null}, teleop=${teleop != null}, endgame=${endgame != null}');
         return 0;
       }
 
       int autoCoral = 0;
       if (auto['coral'] is Map) {
         final coralData = auto['coral'] as Map<Object?, Object?>;
-        final autoCoralPoints = {
-          'L4': 7,  
-          'L3': 6,  
-          'L2': 5,
-          'L1': 4
-        };
+        final autoCoralPoints = {'L4': 7, 'L3': 6, 'L2': 5, 'L1': 4};
         for (var level in ['L1', 'L2', 'L3', 'L4']) {
           if (coralData[level] is Map) {
             final levelData = coralData[level] as Map<Object?, Object?>;
-            // Better error handling for score conversion
-            int score = 0;
-            try {
-              score = int.tryParse(levelData['score']?.toString() ?? '0') ?? 0;
-            } catch (e) {
-              developer.log('Error parsing score for coral $level: $e');
-            }
+            int score = int.tryParse(levelData['score']?.toString() ?? '0') ?? 0;
             autoCoral += score * (autoCoralPoints[level] ?? 0);
           }
         }
@@ -392,84 +139,49 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       int teleopCoral = 0;
       if (teleop['coral'] is Map) {
         final coralData = teleop['coral'] as Map<Object?, Object?>;
-        final teleopCoralPoints = {
-          'L4': 5,  
-          'L3': 4,  
-          'L2': 3,
-          'L1': 2
-        };
+        final teleopCoralPoints = {'L4': 5, 'L3': 4, 'L2': 3, 'L1': 2};
         for (var level in ['L1', 'L2', 'L3', 'L4']) {
           if (coralData[level] is Map) {
             final levelData = coralData[level] as Map<Object?, Object?>;
-            // Better error handling for score conversion
-            int score = 0;
-            try {
-              score = int.tryParse(levelData['score']?.toString() ?? '0') ?? 0;
-            } catch (e) {
-              developer.log('Error parsing score for coral $level: $e');
-            }
+            int score = int.tryParse(levelData['score']?.toString() ?? '0') ?? 0;
             teleopCoral += score * (teleopCoralPoints[level] ?? 0);
           }
         }
       }
 
       int algae = 0;
-      // Check if 'algae' exists and is a Map before accessing its properties
       if (auto['algae'] is Map) {
         final algaeData = auto['algae'] as Map<Object?, Object?>;
-        // Safer boolean conversion
         final isProcessor = algaeData['isProcessor']?.toString().toLowerCase() == 'true';
-        int score = 0;
-        try {
-          score = int.tryParse(algaeData['score']?.toString() ?? '0') ?? 0;
-        } catch (e) {
-          developer.log('Error parsing auto algae score: $e');
-        }
-        algae += score * (isProcessor ? 6 : 4); 
+        int score = int.tryParse(algaeData['score']?.toString() ?? '0') ?? 0;
+        algae += score * (isProcessor ? 6 : 4);
       }
       
       if (teleop['algae'] is Map) {
         final algaeData = teleop['algae'] as Map<Object?, Object?>;
-        // Safer boolean conversion
         final isProcessor = algaeData['isProcessor']?.toString().toLowerCase() == 'true';
-        int score = 0;
-        try {
-          score = int.tryParse(algaeData['score']?.toString() ?? '0') ?? 0;
-        } catch (e) {
-          developer.log('Error parsing teleop algae score: $e');
-        }
-        algae += score * (isProcessor ? 6 : 4); 
+        int score = int.tryParse(algaeData['score']?.toString() ?? '0') ?? 0;
+        algae += score * (isProcessor ? 6 : 4);
       }
 
       int floorStation = 0;
       if (auto['floorStation'] is Map) {
         final fsData = auto['floorStation'] as Map<Object?, Object?>;
-        int floor = 0, station = 0;
-        try {
-          floor = int.tryParse(fsData['floor']?.toString() ?? '0') ?? 0;
-          station = int.tryParse(fsData['station']?.toString() ?? '0') ?? 0;
-        } catch (e) {
-          developer.log('Error parsing auto floor/station: $e');
-        }
+        int floor = int.tryParse(fsData['floor']?.toString() ?? '0') ?? 0;
+        int station = int.tryParse(fsData['station']?.toString() ?? '0') ?? 0;
         floorStation += floor * 2;
         floorStation += station * 3;
       }
       
       if (teleop['floorStation'] is Map) {
         final fsData = teleop['floorStation'] as Map<Object?, Object?>;
-        int floor = 0, station = 0;
-        try {
-          floor = int.tryParse(fsData['floor']?.toString() ?? '0') ?? 0;
-          station = int.tryParse(fsData['station']?.toString() ?? '0') ?? 0;
-        } catch (e) {
-          developer.log('Error parsing teleop floor/station: $e');
-        }
+        int floor = int.tryParse(fsData['floor']?.toString() ?? '0') ?? 0;
+        int station = int.tryParse(fsData['station']?.toString() ?? '0') ?? 0;
         floorStation += floor;
         floorStation += station * 2;
       }
 
       int climbPoints = 0;
-      // Handle potentially null climbStatus
       final climbStatus = endgame['cageParkStatus']?.toString().toLowerCase() ?? '';
       if (climbStatus.contains('park')) {
         climbPoints = 2;
@@ -480,8 +192,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       }
 
       return autoCoral + teleopCoral + algae + floorStation + climbPoints;
-    } catch (e, stackTrace) {
-      developer.log('Error calculating score', error: e, stackTrace: stackTrace);
+    } catch (e) {
+      developer.log('Error calculating score: $e');
       return 0;
     }
   }
@@ -489,10 +201,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: NavBar(),
       backgroundColor: const Color.fromRGBO(65, 68, 74, 1),
       appBar: AppBar(
-        title: const Text('Team Analytics',
-        style: TextStyle(color: Colors.white),),
+        title: const Text('Team Analytics', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color.fromRGBO(65, 68, 74, 1),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -501,7 +213,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Event Key Input
               TextField(
                 controller: _eventKeyController,
                 style: const TextStyle(color: Colors.white),
@@ -595,6 +306,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                       value.toInt().toString(),
                                       style: const TextStyle(color: Colors.white70),
                                     ),
+                                    reservedSize: 28,
                                   ),
                                 ),
                                 bottomTitles: AxisTitles(
@@ -604,6 +316,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                       value.toInt().toString(),
                                       style: const TextStyle(color: Colors.white70),
                                     ),
+                                    reservedSize: 22,
                                   ),
                                 ),
                                 rightTitles: const AxisTitles(
@@ -638,16 +351,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 const SizedBox(height: 16),
                 _StatsCharts(matches: _matches),
               ],
-              if (_matches.isEmpty && !_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Text(
-                      'No data available',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -657,13 +360,12 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 }
 
 class _StatsCharts extends StatelessWidget {
-  final List<Map<Object?, Object?>> matches;
-
+  final List<Map<String, dynamic>> matches;
   const _StatsCharts({required this.matches});
 
   Map<String, dynamic> calculateAverages() {
     if (matches.isEmpty) return {};
-    
+
     Map<String, double> autoCoralSums = {'L1': 0, 'L2': 0, 'L3': 0, 'L4': 0};
     Map<String, double> teleopCoralSums = {'L1': 0, 'L2': 0, 'L3': 0, 'L4': 0};
     Map<String, double> autoCoralMisses = {'L1': 0, 'L2': 0, 'L3': 0, 'L4': 0};
@@ -677,7 +379,7 @@ class _StatsCharts extends StatelessWidget {
       'shallow': 0,
       'deep': 0,
       'failed': 0,
-      'none': 0
+      'none': 0,
     };
 
     for (var match in matches) {
@@ -760,6 +462,7 @@ class _StatsCharts extends StatelessWidget {
     }
 
     final count = matches.length.toDouble();
+    if (count == 0) return {};
     
     return {
       'autoCoralAvg': Map.fromEntries(
@@ -842,7 +545,7 @@ class _StatsCharts extends StatelessWidget {
                   barGroups: [
                     for (var level in ['L1', 'L2', 'L3', 'L4'])
                       BarChartGroupData(
-                        x: autoAvg.keys.toList().indexOf(level),
+                        x: ['L1', 'L2', 'L3', 'L4'].indexOf(level),
                         barRods: [
                           BarChartRodData(
                             toY: autoAvg[level] ?? 0,
@@ -871,6 +574,7 @@ class _StatsCharts extends StatelessWidget {
                           value.toStringAsFixed(1),
                           style: const TextStyle(color: Colors.white70, fontSize: 10),
                         ),
+                        reservedSize: 28,
                       ),
                     ),
                     bottomTitles: AxisTitles(
@@ -903,11 +607,7 @@ class _StatsCharts extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      color: Colors.blue,
-                    ),
+                    Container(width: 12, height: 12, color: Colors.blue),
                     const SizedBox(width: 4),
                     const Text('Auto', style: TextStyle(color: Colors.white70)),
                   ],
@@ -915,11 +615,7 @@ class _StatsCharts extends StatelessWidget {
                 const SizedBox(width: 16),
                 Row(
                   children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      color: Colors.green,
-                    ),
+                    Container(width: 12, height: 12, color: Colors.green),
                     const SizedBox(width: 4),
                     const Text('Teleop', style: TextStyle(color: Colors.white70)),
                   ],
@@ -927,11 +623,7 @@ class _StatsCharts extends StatelessWidget {
                 const SizedBox(width: 16),
                 Row(
                   children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      color: Colors.red,
-                    ),
+                    Container(width: 12, height: 12, color: Colors.red),
                     const SizedBox(width: 4),
                     const Text('Missed', style: TextStyle(color: Colors.white70)),
                   ],
@@ -969,7 +661,6 @@ class _StatsCharts extends StatelessWidget {
                   maxY: _calculateMaxY(autoStats, teleopStats),
                   groupsSpace: 12,
                   barGroups: [
-                    // Auto Scored
                     BarChartGroupData(
                       x: 0,
                       barRods: [
@@ -980,7 +671,6 @@ class _StatsCharts extends StatelessWidget {
                         ),
                       ],
                     ),
-                    // Auto Missed
                     BarChartGroupData(
                       x: 1,
                       barRods: [
@@ -991,7 +681,6 @@ class _StatsCharts extends StatelessWidget {
                         ),
                       ],
                     ),
-                    // Small spacer
                     BarChartGroupData(
                       x: 2,
                       barRods: [
@@ -1002,7 +691,6 @@ class _StatsCharts extends StatelessWidget {
                         ),
                       ],
                     ),
-                    // Teleop Scored
                     BarChartGroupData(
                       x: 3,
                       barRods: [
@@ -1013,7 +701,6 @@ class _StatsCharts extends StatelessWidget {
                         ),
                       ],
                     ),
-                    // Teleop Missed
                     BarChartGroupData(
                       x: 4,
                       barRods: [
@@ -1034,9 +721,11 @@ class _StatsCharts extends StatelessWidget {
                           value.toStringAsFixed(1),
                           style: const TextStyle(color: Colors.white70, fontSize: 10),
                         ),
+                        reservedSize: 28,
                       ),
                     ),
                     bottomTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
                     ),
                     rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
@@ -1121,7 +810,7 @@ class _StatsCharts extends StatelessWidget {
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
-                  maxY: 100, // Set maximum Y value to 100%
+                  maxY: 100,
                   barGroups: [
                     for (var i = 0; i < data.length; i++)
                       BarChartGroupData(
@@ -1130,7 +819,7 @@ class _StatsCharts extends StatelessWidget {
                           BarChartRodData(
                             toY: data[i],
                             color: _getClimbColor(i),
-                            width: 16, // Slightly reduced width
+                            width: 16,
                           ),
                         ],
                       ),
@@ -1154,7 +843,7 @@ class _StatsCharts extends StatelessWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) => Transform.rotate(
-                          angle: -0.4, // Slight angle to prevent overlap
+                          angle: -0.4,
                           child: Text(
                             ['Park', 'Shallow', 'Deep', 'Failed', 'None'][value.toInt()],
                             style: const TextStyle(color: Colors.white70, fontSize: 9),
@@ -1182,33 +871,41 @@ class _StatsCharts extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            // Changed legend to wrap
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 4,
               children: [
-                for (var i = 0; i < 5; i++)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        color: _getClimbColor(i),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        ['Park', 'Shallow', 'Deep', 'Failed', 'None'][i],
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ],
-                  ),
+                _buildLegendItem('Park', Colors.green),
+                _buildLegendItem('Shallow', Colors.blue),
+                _buildLegendItem('Deep', Colors.purple),
+                _buildLegendItem('Failed', Colors.red),
+                _buildLegendItem('None', Colors.grey),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Color _getClimbColor(int index) {
+    switch (index) {
+      case 0: return Colors.green;
+      case 1: return Colors.blue;
+      case 2: return Colors.purple;
+      case 3: return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 12, height: 12, color: color),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      ],
     );
   }
 }

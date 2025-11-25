@@ -1,5 +1,5 @@
-import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'services/data_service.dart';
 
 // variables.dart
 // Add eventKey to the pageData structure
@@ -75,7 +75,6 @@ Map<String, dynamic> pitScoutingData = {
 
 // Modify the submit functions to use the eventKey
 Future<void> submitMatchData() async {
-  final DatabaseReference dbRef = FirebaseDatabase.instance.ref();
   final User? currentUser = FirebaseAuth.instance.currentUser;
   
   if (currentUser == null) {
@@ -85,11 +84,9 @@ Future<void> submitMatchData() async {
   // Add the current user's email to the pageData
   pageData['submittedBy'] = currentUser.email ?? 'Unknown';
 
-  // Use the eventKey from pageData instead of hardcoded 'RCR2025'
-  final String matchPath = '${pageData['eventKey']}/matches/${pageData['matchNum']}/${pageData['robotNum']}';
-  
   try {
-    await dbRef.child(matchPath).set(pageData);
+    await DataService().submitMatchData(pageData);
+    
     // Reset the data after successful submission
     pageData = {
       'eventKey': pageData['eventKey'], // Preserve the event key
@@ -146,7 +143,6 @@ Future<void> submitMatchData() async {
 }
 
 Future<void> submitPitScoutingData() async {
-  final DatabaseReference dbRef = FirebaseDatabase.instance.ref();
   final User? currentUser = FirebaseAuth.instance.currentUser;
   
   if (currentUser == null) {
@@ -156,11 +152,8 @@ Future<void> submitPitScoutingData() async {
   // Add the current user's email to the pitScoutingData
   pitScoutingData['submittedBy'] = currentUser.email ?? 'Unknown';
 
-  // Use the eventKey from pitScoutingData instead of hardcoded 'RCR2025'
-  final String pitScoutingPath = '${pitScoutingData['eventKey']}/pitScouting/${pitScoutingData['robotNum']}';
-  
   try {
-    await dbRef.child(pitScoutingPath).set(pitScoutingData);
+    await DataService().submitPitScoutingData(pitScoutingData);
     
     // Reset pit scouting data after successful submission
     pitScoutingData = {
