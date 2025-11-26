@@ -111,7 +111,6 @@ class AuthGate extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: AspectRatio(
                     aspectRatio: 1,
-                    child: Image.asset('assets/images/rohawktics.png'),
                   ),
                 );
               },
@@ -164,11 +163,6 @@ class AuthGate extends StatelessWidget {
                 backgroundColor: AppColors.background,
                 appBar: AppBar(
                   backgroundColor: Colors.transparent,
-                  title: Image.asset(
-                    'assets/images/rohawktics.png',
-                    width: 75,
-                    height: 75,
-                  ),
                   elevation: 0,
                 ),
                 body: Padding(

@@ -17,9 +17,23 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
   // Form Data
   final Map<String, dynamic> _formData = {
     'matchInfo': {},
-    'auto': {},
-    'teleop': {},
-    'endgame': {},
+    'auto': {
+      'moved': false,
+      'low': 0,
+      'outer': 0,
+      'inner': 0,
+    },
+    'teleop': {
+      'low': 0,
+      'outer': 0,
+      'inner': 0,
+      'rotationControl': false,
+      'positionControl': false,
+    },
+    'endgame': {
+      'hang': 'None', // None, Park, Hang, Level
+      'level': false,
+    },
   };
 
   // Controllers
@@ -58,7 +72,6 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       
-      // Update match info
       _formData['matchInfo'] = {
         'matchNumber': _matchNumberController.text,
         'teamNumber': _teamNumberController.text,
@@ -86,59 +99,93 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Match Scouting'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(4),
-          child: LinearProgressIndicator(
-            value: (_currentPage + 1) / 4,
-            backgroundColor: AppColors.surface,
-            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+        title: const Text('Infinite Recharge Scouting'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          // Custom Progress Indicator
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              children: List.generate(4, (index) {
+                return Expanded(
+                  child: Container(
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: index <= _currentPage ? AppColors.primary : AppColors.surfaceHighlight,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                );
+              }),
+            ),
           ),
-        ),
+          Expanded(
+            child: Form(
+              key: _formKey,
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                children: [
+                  _buildPreMatchPage(),
+                  _buildAutoPage(),
+                  _buildTeleopPage(),
+                  _buildEndgamePage(),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
-      body: Form(
-        key: _formKey,
-        child: PageView(
-          controller: _pageController,
-          physics: const NeverScrollableScrollPhysics(),
-          onPageChanged: (index) {
-            setState(() {
-              _currentPage = index;
-            });
-          },
-          children: [
-            _buildPreMatchPage(),
-            _buildAutoPage(),
-            _buildTeleopPage(),
-            _buildEndgamePage(),
-          ],
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.surfaceHighlight)),
         ),
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             if (_currentPage > 0)
-              ElevatedButton(
+              TextButton.icon(
                 onPressed: _prevPage,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.surface),
-                child: const Text('Previous'),
+                icon: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
+                label: const Text('Back', style: TextStyle(color: AppColors.textSecondary)),
               )
             else
-              const SizedBox(width: 100), // Spacer
+              const SizedBox(width: 80),
 
             if (_currentPage < 3)
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: _nextPage,
-                child: const Text('Next'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('Next'),
               )
             else
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: _submitForm,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-                child: const Text('Submit'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                icon: const Icon(Icons.check),
+                label: const Text('Submit'),
               ),
           ],
         ),
@@ -147,52 +194,256 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
   }
 
   Widget _buildPreMatchPage() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Pre-Match Information', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text(
+            'PRE-MATCH',
+            style: TextStyle(color: AppColors.primary, fontSize: 14, letterSpacing: 1.5, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Match Information',
+            style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 30),
+          _buildTextField('Match Number', _matchNumberController, Icons.numbers),
           const SizedBox(height: 20),
-          TextFormField(
-            controller: _matchNumberController,
-            decoration: const InputDecoration(labelText: 'Match Number'),
-            keyboardType: TextInputType.number,
-            validator: (value) => value!.isEmpty ? 'Required' : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _teamNumberController,
-            decoration: const InputDecoration(labelText: 'Team Number'),
-            keyboardType: TextInputType.number,
-            validator: (value) => value!.isEmpty ? 'Required' : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _scouterNameController,
-            decoration: const InputDecoration(labelText: 'Scouter Name'),
-            validator: (value) => value!.isEmpty ? 'Required' : null,
-          ),
+          _buildTextField('Team Number', _teamNumberController, Icons.group),
+          const SizedBox(height: 20),
+          _buildTextField('Scouter Name', _scouterNameController, Icons.person),
         ],
       ),
     );
   }
 
   Widget _buildAutoPage() {
-    return const Center(
-      child: Text('Auto Page (To Be Implemented)', style: TextStyle(color: Colors.white)),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'AUTONOMOUS',
+            style: TextStyle(color: AppColors.primary, fontSize: 14, letterSpacing: 1.5, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Power Cell Scoring',
+            style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 30),
+          
+          _buildToggleCard(
+            'Initiation Line',
+            'Did the robot cross the line?',
+            _formData['auto']['moved'],
+            (val) => setState(() => _formData['auto']['moved'] = val),
+          ),
+          
+          const SizedBox(height: 20),
+          _buildCounter('Bottom Port', _formData['auto']['low'], (val) => setState(() => _formData['auto']['low'] = val)),
+          const SizedBox(height: 15),
+          _buildCounter('Outer Port', _formData['auto']['outer'], (val) => setState(() => _formData['auto']['outer'] = val)),
+          const SizedBox(height: 15),
+          _buildCounter('Inner Port', _formData['auto']['inner'], (val) => setState(() => _formData['auto']['inner'] = val)),
+        ],
+      ),
     );
   }
 
   Widget _buildTeleopPage() {
-    return const Center(
-      child: Text('Teleop Page (To Be Implemented)', style: TextStyle(color: Colors.white)),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'TELEOP',
+            style: TextStyle(color: AppColors.primary, fontSize: 14, letterSpacing: 1.5, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Teleop Performance',
+            style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 30),
+          
+          _buildCounter('Bottom Port', _formData['teleop']['low'], (val) => setState(() => _formData['teleop']['low'] = val)),
+          const SizedBox(height: 15),
+          _buildCounter('Outer Port', _formData['teleop']['outer'], (val) => setState(() => _formData['teleop']['outer'] = val)),
+          const SizedBox(height: 15),
+          _buildCounter('Inner Port', _formData['teleop']['inner'], (val) => setState(() => _formData['teleop']['inner'] = val)),
+          
+          const SizedBox(height: 30),
+          const Text('Control Panel', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 15),
+          _buildToggleCard(
+            'Rotation Control',
+            'Stage 2: Spin 3-5 times',
+            _formData['teleop']['rotationControl'],
+            (val) => setState(() => _formData['teleop']['rotationControl'] = val),
+          ),
+          const SizedBox(height: 10),
+          _buildToggleCard(
+            'Position Control',
+            'Stage 3: Spin to color',
+            _formData['teleop']['positionControl'],
+            (val) => setState(() => _formData['teleop']['positionControl'] = val),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildEndgamePage() {
-    return const Center(
-      child: Text('Endgame Page (To Be Implemented)', style: TextStyle(color: Colors.white)),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ENDGAME',
+            style: TextStyle(color: AppColors.primary, fontSize: 14, letterSpacing: 1.5, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Shield Generator',
+            style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 30),
+          
+          const Text('Hang Status', style: TextStyle(color: Colors.white70, fontSize: 16)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.surfaceHighlight),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _formData['endgame']['hang'],
+                isExpanded: true,
+                dropdownColor: AppColors.surface,
+                style: const TextStyle(color: Colors.white),
+                items: ['None', 'Park', 'Hang'].map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _formData['endgame']['hang'] = val),
+              ),
+            ),
+          ),
+          
+          if (_formData['endgame']['hang'] == 'Hang') ...[
+            const SizedBox(height: 20),
+            _buildToggleCard(
+              'Level?',
+              'Is the switch level?',
+              _formData['endgame']['level'],
+              (val) => setState(() => _formData['endgame']['level'] = val),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon) {
+    return TextFormField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white),
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: AppColors.primary),
+        filled: true,
+        fillColor: AppColors.surface,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        labelStyle: const TextStyle(color: AppColors.textSecondary),
+      ),
+      validator: (value) => value!.isEmpty ? 'Required' : null,
+    );
+  }
+
+  Widget _buildCounter(String label, int value, Function(int) onChanged) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.surfaceHighlight),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+          Row(
+            children: [
+              _buildIconButton(Icons.remove, () {
+                if (value > 0) onChanged(value - 1);
+              }),
+              SizedBox(width: 40, child: Center(child: Text('$value', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)))),
+              _buildIconButton(Icons.add, () => onChanged(value + 1)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIconButton(IconData icon, VoidCallback onPressed) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceHighlight,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.white, size: 20),
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  Widget _buildToggleCard(String title, String subtitle, bool value, Function(bool) onChanged) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: value ? AppColors.primary.withOpacity(0.1) : AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: value ? AppColors.primary : AppColors.surfaceHighlight),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(color: value ? AppColors.primary : Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                ],
+              ),
+            ),
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

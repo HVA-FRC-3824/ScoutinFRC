@@ -1,13 +1,10 @@
-// ignore_for_file: use_build_context_synchronously, prefer_const_constructors
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
-
+import '../../../core/constants/app_colors.dart';
 
 class SchedulePage extends StatefulWidget {
-  const SchedulePage({super.key, required this.title});
-  final String title;
+  const SchedulePage({super.key});
 
   @override
   State<SchedulePage> createState() => _SchedulePageState();
@@ -29,9 +26,7 @@ class _SchedulePageState extends State<SchedulePage> {
   void _shareSchedule() {
     if (_selectedScouter == null || _assignments.isEmpty) return;
 
-    // Create a formatted message
     String message = 'Scouting Schedule for $_selectedScouter:\n\n';
-    
     for (var assignment in _assignments) {
       message += '• Match ${assignment['matchNumber']}: Robot ${assignment['robotNumber']}\n';
     }
@@ -41,10 +36,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
   Future<void> _fetchScouterNames() async {
     try {
-      final QuerySnapshot snapshot = await _firestore
-          .collection('scouting_assignments')
-          .get();
-
+      final QuerySnapshot snapshot = await _firestore.collection('scouting_assignments').get();
       Set<String> names = {};
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
@@ -59,17 +51,12 @@ class _SchedulePageState extends State<SchedulePage> {
       });
     } catch (e) {
       print('Error fetching scouter names: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
   Future<void> _fetchAssignments(String scouterName) async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       final QuerySnapshot snapshot = await _firestore
           .collection('scouting_assignments')
@@ -85,9 +72,7 @@ class _SchedulePageState extends State<SchedulePage> {
         });
       }
 
-      // Sort assignments by match number
-      assignments.sort((a, b) => int.parse(a['matchNumber'])
-          .compareTo(int.parse(b['matchNumber'])));
+      assignments.sort((a, b) => int.parse(a['matchNumber']).compareTo(int.parse(b['matchNumber'])));
 
       setState(() {
         _assignments = assignments;
@@ -95,156 +80,139 @@ class _SchedulePageState extends State<SchedulePage> {
       });
     } catch (e) {
       print('Error fetching assignments: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        leading: Builder(
-          builder: (BuildContext context) {
-            return IconButton(
-              icon: const Icon(
-                Icons.menu,
-                color: Color.fromRGBO(165, 176, 168, 1),
-                size: 50,
-              ),
-              onPressed: () {
-                Scaffold.of(context).openDrawer();
-              },
-              tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-            );
-          },
-        ),
+        title: const Text('Match Schedule'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           if (_selectedScouter != null && _assignments.isNotEmpty)
             IconButton(
-              icon: const Icon(
-                Icons.share,
-                color: Color.fromRGBO(165, 176, 168, 1),
-                size: 30,
-              ),
+              icon: const Icon(Icons.share, color: AppColors.primary),
               onPressed: _shareSchedule,
             ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(
-              Icons.arrow_back,
-              color: Color.fromRGBO(165, 176, 168, 1),
-              size: 50,
-            ),
-          ),
         ],
-        backgroundColor: const Color.fromRGBO(65, 68, 74, 1),
-        title: Image.asset(
-          'assets/images/rohawktics.png',
-          width: 75,
-          height: 75,
-          alignment: Alignment.center,
-        ),
       ),
-      body: Container(
-        color: const Color.fromRGBO(65, 68, 74, 1),
-        padding: const EdgeInsets.all(16.0),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color.fromRGBO(75, 79, 85, 1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.white,
-                  width: 1,
-                ),
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.surfaceHighlight),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _selectedScouter,
-                  hint: const Text(
-                    'Select Scouter',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  hint: const Text('Select Scouter', style: TextStyle(color: AppColors.textSecondary)),
+                  dropdownColor: AppColors.surface,
+                  icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                  isExpanded: true,
                   items: _scouterNames.map((String name) {
                     return DropdownMenuItem<String>(
                       value: name,
-                      child: Text(
-                        name,
-                        style: const TextStyle(color: Colors.white),
-                      ),
+                      child: Text(name, style: const TextStyle(color: Colors.white)),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedScouter = newValue;
-                    });
-                    if (newValue != null) {
-                      _fetchAssignments(newValue);
-                    }
+                    setState(() => _selectedScouter = newValue);
+                    if (newValue != null) _fetchAssignments(newValue);
                   },
-                  dropdownColor: const Color.fromRGBO(75, 79, 85, 1),
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                  isExpanded: true,
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            if (_isLoading)
-              const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            else if (_selectedScouter != null && _assignments.isEmpty)
-              const Center(
-                child: Text(
-                  'No assignments found',
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
-              )
-            else if (_selectedScouter != null)
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _assignments.length,
-                  itemBuilder: (context, index) {
-                    final assignment = _assignments[index];
-                    return Card(
-                      color: const Color.fromRGBO(75, 79, 85, 1),
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.white24,
-                          child: Text(
-                            assignment['matchNumber'],
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        title: Text(
-                          'Match ${assignment['matchNumber']}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Robot: ${assignment['robotNumber']}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+            Expanded(
+              child: _buildContent(),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+    }
+    
+    if (_selectedScouter != null && _assignments.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.event_busy, size: 64, color: AppColors.textDisabled),
+            SizedBox(height: 16),
+            Text('No assignments found', style: TextStyle(color: AppColors.textSecondary, fontSize: 18)),
+          ],
+        ),
+      );
+    }
+    
+    if (_selectedScouter == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.person_search, size: 64, color: AppColors.textDisabled),
+            SizedBox(height: 16),
+            Text('Select a scouter to view schedule', style: TextStyle(color: AppColors.textSecondary, fontSize: 18)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: _assignments.length,
+      itemBuilder: (context, index) {
+        final assignment = _assignments[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.surface, AppColors.surface.withOpacity(0.8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.surfaceHighlight),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                assignment['matchNumber'],
+                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+              ),
+            ),
+            title: Text(
+              'Match ${assignment['matchNumber']}',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Text(
+              'Target Robot: ${assignment['robotNumber']}',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textDisabled),
+          ),
+        );
+      },
     );
   }
 }
