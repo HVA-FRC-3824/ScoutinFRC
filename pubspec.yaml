@@ -47,6 +47,7 @@ dependencies:
   firebase_ui_oauth_apple: ^2.0.1
   share_plus: ^12.0.1
   cached_network_image: ^3.4.1
+  google_fonts: ^6.3.2
 
 dev_dependencies:
   flutter_test:

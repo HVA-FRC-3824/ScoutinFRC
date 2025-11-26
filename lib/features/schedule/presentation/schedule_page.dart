@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
-import 'navbar.dart';
+
 
 class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key, required this.title});
@@ -104,7 +104,6 @@ class _SchedulePageState extends State<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: NavBar(),
       appBar: AppBar(
         leading: Builder(
           builder: (BuildContext context) {

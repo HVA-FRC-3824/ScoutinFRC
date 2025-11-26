@@ -7,10 +7,11 @@ import 'package:firebase_ui_oauth_apple/firebase_ui_oauth_apple.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'main.dart' as m;
+import '../../../core/constants/app_colors.dart';
+import '../../home/presentation/home_page.dart';
 
 class AuthGate extends StatelessWidget {
-  const AuthGate({super.key, required List<SignedOutAction> actions});
+  const AuthGate({super.key});
 
   Future<void> createUserDocument(String uid, {String? role, String? username}) async {
     try {
@@ -77,19 +78,19 @@ class AuthGate extends StatelessWidget {
           return Theme(
             data: Theme.of(context).copyWith(
               colorScheme: ColorScheme.fromSwatch().copyWith(
-                primary: Colors.white,
-                secondary: Colors.grey,
-                onPrimary: Colors.black,
+                primary: AppColors.primary,
+                secondary: AppColors.accent,
+                onPrimary: Colors.white,
                 onSurface: Colors.white,
               ),
-              inputDecorationTheme: const InputDecorationTheme(
-                labelStyle: TextStyle(color: Colors.white),
-                hintStyle: TextStyle(color: Colors.white70),
+              inputDecorationTheme: InputDecorationTheme(
+                labelStyle: const TextStyle(color: Colors.white),
+                hintStyle: const TextStyle(color: Colors.white70),
                 enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
                 ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
                 ),
               ),
               textTheme: const TextTheme(
@@ -97,7 +98,7 @@ class AuthGate extends StatelessWidget {
                 bodyMedium: TextStyle(color: Colors.white),
                 bodySmall: TextStyle(color: Colors.white),
               ),
-              scaffoldBackgroundColor: const Color.fromRGBO(65, 68, 73, 1),
+              scaffoldBackgroundColor: AppColors.background,
             ),
             child: SignInScreen(
               providers: [
@@ -149,7 +150,10 @@ class AuthGate extends StatelessWidget {
           future: _getUserDetails(user.uid),
           builder: (context, detailsSnapshot) {
             if (detailsSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Scaffold(
+                backgroundColor: AppColors.background,
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
 
             final details = detailsSnapshot.data!;
@@ -157,23 +161,9 @@ class AuthGate extends StatelessWidget {
 
             if (username == null || username.isEmpty) {
               return Scaffold(
+                backgroundColor: AppColors.background,
                 appBar: AppBar(
-                  leading: Builder(
-                    builder: (BuildContext context) {
-                      return IconButton(
-                        icon: const Icon(
-                          Icons.menu,
-                          color: Color.fromRGBO(165, 176, 168, 1),
-                          size: 50,
-                        ),
-                        onPressed: () {
-                          Scaffold.of(context).openDrawer();
-                        },
-                        tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-                      );
-                    },
-                  ),
-                  backgroundColor: const Color.fromRGBO(65, 68, 73, 1),
+                  backgroundColor: Colors.transparent,
                   title: Image.asset(
                     'assets/images/rohawktics.png',
                     width: 75,
@@ -194,10 +184,11 @@ class AuthGate extends StatelessWidget {
                         ),
                         const SizedBox(height: 20),
                         TextField(
+                          style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
                             labelText: 'Username',
                             border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.person),
+                            prefixIcon: Icon(Icons.person, color: Colors.white70),
                           ),
                           onSubmitted: (value) async {
                             if (value.isNotEmpty) {
@@ -205,7 +196,7 @@ class AuthGate extends StatelessWidget {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const m.HomePage(title: ""),
+                                  builder: (context) => const HomePage(),
                                 ),
                               );
                             } else {
@@ -222,7 +213,7 @@ class AuthGate extends StatelessWidget {
               );
             }
 
-            return const m.HomePage(title: "");
+            return const HomePage();
           },
         );
       },
