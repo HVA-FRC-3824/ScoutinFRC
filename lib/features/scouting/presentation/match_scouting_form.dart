@@ -213,7 +213,7 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
           const SizedBox(height: 20),
           _buildTextField('Team Number', _teamNumberController, Icons.group),
           const SizedBox(height: 20),
-          _buildTextField('Scouter Name', _scouterNameController, Icons.person),
+          _buildTextField('Scouter Name', _scouterNameController, Icons.person, keyboardType: TextInputType.name),
         ],
       ),
     );
@@ -355,11 +355,11 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon) {
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {TextInputType keyboardType = TextInputType.number}) {
     return TextFormField(
       controller: controller,
       style: const TextStyle(color: Colors.white),
-      keyboardType: TextInputType.number,
+      keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: AppColors.primary),

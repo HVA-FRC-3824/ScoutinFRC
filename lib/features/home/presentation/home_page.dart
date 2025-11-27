@@ -7,9 +7,70 @@ import '../../scouting/presentation/scouting_dashboard.dart';
 import '../../analytics/presentation/analytics_dashboard.dart';
 import '../../schedule/presentation/schedule_page.dart';
 import '../../admin/presentation/admin_page.dart';
+import '../../auth/presentation/account_settings_page.dart';
+import 'widgets/side_menu.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _currentIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  final List<Widget> _pages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _pages.addAll([
+      HomeDashboardView(
+        onTabChange: (index) => _onTabChange(index),
+        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+      ),
+      ScoutingDashboard(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
+      AnalyticsDashboard(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
+      SchedulePage(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
+      AdminPage(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
+      AccountSettingsPage(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
+    ]);
+  }
+
+  void _onTabChange(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: AppColors.background,
+      drawer: SideMenu(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: _onTabChange,
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
+    );
+  }
+}
+
+class HomeDashboardView extends StatelessWidget {
+  final Function(int) onTabChange;
+  final VoidCallback onMenuPressed;
+  
+  const HomeDashboardView({
+    super.key, 
+    required this.onTabChange,
+    required this.onMenuPressed,
+  });
 
   Future<String> _getUsername() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -77,12 +138,11 @@ class HomePage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: AppColors.primary.withOpacity(0.2),
-            child: const Icon(Icons.person, color: AppColors.primary),
+          IconButton(
+            icon: const Icon(Icons.menu, color: AppColors.primary),
+            onPressed: onMenuPressed,
           ),
-          const SizedBox(width: 15),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,16 +167,10 @@ class HomePage extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: AppColors.textSecondary),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => const AuthGate()),
-                );
-              }
-            },
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: AppColors.primary.withOpacity(0.2),
+            child: const Icon(Icons.person, color: AppColors.primary),
           ),
         ],
       ),
@@ -138,7 +192,7 @@ class HomePage extends StatelessWidget {
           'Collect match data',
           Icons.sports_esports,
           AppColors.primary,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ScoutingDashboard())),
+          () => onTabChange(1), // Switch to Scouting Tab
         ),
         _buildActionCard(
           context,
@@ -146,7 +200,7 @@ class HomePage extends StatelessWidget {
           'View team stats',
           Icons.analytics,
           AppColors.tertiary,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AnalyticsDashboard())),
+          () => onTabChange(2), // Switch to Analytics Tab
         ),
         _buildActionCard(
           context,
@@ -154,7 +208,7 @@ class HomePage extends StatelessWidget {
           'Upcoming matches',
           Icons.calendar_today,
           AppColors.secondary,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SchedulePage())),
+          () => onTabChange(3), // Switch to Schedule Tab
         ),
         _buildActionCard(
           context,
@@ -162,7 +216,7 @@ class HomePage extends StatelessWidget {
           'Manage app settings',
           Icons.admin_panel_settings,
           Colors.purple,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPage())),
+          () => onTabChange(4), // Switch to Admin Tab
         ),
       ],
     );
