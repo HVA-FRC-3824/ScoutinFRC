@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import 'match_scouting_form.dart';
+import 'match_selection_page.dart';
+import 'pit_scouting_form.dart';
 
 class ScoutingDashboard extends StatelessWidget {
-  final VoidCallback? onMenuPressed;
-
-  const ScoutingDashboard({super.key, this.onMenuPressed});
+  const ScoutingDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -15,9 +14,6 @@ class ScoutingDashboard extends StatelessWidget {
         title: const Text('Scouting Dashboard'),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: onMenuPressed != null 
-            ? IconButton(icon: const Icon(Icons.menu, color: AppColors.primary), onPressed: onMenuPressed)
-            : null, // Default back button if null, or nothing
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -34,7 +30,7 @@ class ScoutingDashboard extends StatelessWidget {
               () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const MatchScoutingForm()),
+                  MaterialPageRoute(builder: (context) => const MatchSelectionPage()),
                 );
               },
             ),
@@ -44,7 +40,10 @@ class ScoutingDashboard extends StatelessWidget {
               Icons.assignment,
               Colors.orange,
               () {
-                // Navigate to Pit Scouting Form
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PitScoutingForm()),
+                );
               },
             ),
           ],

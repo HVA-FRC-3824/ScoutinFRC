@@ -1,122 +1,49 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/services/data_service.dart';
 
-class MatchScoutingForm extends StatefulWidget {
-  final String? eventKey;
-  final int? matchNumber;
-  final String? teamNumber;
-
-  const MatchScoutingForm({
-    super.key, 
-    this.eventKey,
-    this.matchNumber,
-    this.teamNumber,
-  });
+class PitScoutingForm extends StatefulWidget {
+  const PitScoutingForm({super.key});
 
   @override
-  State<MatchScoutingForm> createState() => _MatchScoutingFormState();
+  State<PitScoutingForm> createState() => _PitScoutingFormState();
 }
 
-class _MatchScoutingFormState extends State<MatchScoutingForm> {
+class _PitScoutingFormState extends State<PitScoutingForm> {
   final _formKey = GlobalKey<FormState>();
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
   final Map<String, dynamic> _formData = {
-    'matchInfo': {},
-    'auto': {
-      'moved': false,
-      'low': 0,
-      'outer': 0,
-      'inner': 0,
+    'teamInfo': {},
+    'specs': {
+      'drivetrain': 'Tank',
+      'weight': '',
+      'motorType': 'Falcon 500',
     },
-    'teleop': {
-      'low': 0,
-      'outer': 0,
-      'inner': 0,
-      'rotationControl': false,
-      'positionControl': false,
+    'capabilities': {
+      'autoMove': false,
+      'autoLow': false,
+      'autoHigh': false,
+      'climb': false,
+      'wheelOfFortune': false,
     },
-    'endgame': {
-      'hang': 'None', 
-      'level': false,
-    },
+    'comments': '',
   };
 
-  final TextEditingController _matchNumberController = TextEditingController();
   final TextEditingController _teamNumberController = TextEditingController();
-  final TextEditingController _scouterNameController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadScouterName();
-    
-    if (widget.matchNumber != null) {
-      _matchNumberController.text = widget.matchNumber.toString();
-    }
-    if (widget.teamNumber != null) {
-      _teamNumberController.text = widget.teamNumber!;
-    }
-
-    if (widget.eventKey != null && widget.matchNumber == null) {
-      _matchNumberController.addListener(_fetchMatchDetails);
-    }
-  }
+  final TextEditingController _teamNameController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
+  final TextEditingController _commentsController = TextEditingController();
 
   @override
   void dispose() {
-    _matchNumberController.removeListener(_fetchMatchDetails);
-    _matchNumberController.dispose();
     _teamNumberController.dispose();
-    _scouterNameController.dispose();
+    _teamNameController.dispose();
+    _weightController.dispose();
+    _commentsController.dispose();
     _pageController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadScouterName() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        setState(() {
-          _scouterNameController.text = doc.data()?['username'] ?? '';
-        });
-      }
-    }
-  }
-
-  Future<void> _fetchMatchDetails() async {
-    final matchNum = _matchNumberController.text;
-    if (matchNum.isEmpty || widget.eventKey == null) return;
-
-    try {
-       final user = FirebaseAuth.instance.currentUser;
-       if (user != null) {
-         final query = await FirebaseFirestore.instance.collection('scouting_assignments')
-             .where('eventCode', isEqualTo: widget.eventKey)
-             .where('matchNumber', isEqualTo: int.tryParse(matchNum))
-             .where('scouterUid', isEqualTo: user.uid)
-             .get();
-         
-         if (query.docs.isNotEmpty) {
-           final assignment = query.docs.first.data();
-           setState(() {
-             _teamNumberController.text = assignment['teamNumber'].toString();
-           });
-           
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('Found assignment: Team ${assignment['teamNumber']}')),
-           );
-         } else {
-         }
-       }
-    } catch (e) {
-      print('Error fetching match details: $e');
-    }
   }
 
   void _nextPage() {
@@ -141,17 +68,18 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       
-      _formData['matchInfo'] = {
-        'matchNumber': _matchNumberController.text,
+      _formData['teamInfo'] = {
         'teamNumber': _teamNumberController.text,
-        'scouterName': _scouterNameController.text,
+        'teamName': _teamNameController.text,
       };
+      _formData['specs']['weight'] = _weightController.text;
+      _formData['comments'] = _commentsController.text;
 
       try {
-        await DataService().submitMatchData(_formData);
+        await DataService().submitPitScoutingData(_formData);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Match data submitted successfully!')),
+            const SnackBar(content: Text('Pit data submitted successfully!')),
           );
           Navigator.of(context).pop();
         }
@@ -170,7 +98,7 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Infinite Recharge Scouting'),
+        title: const Text('Pit Scouting'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -205,10 +133,10 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
                   });
                 },
                 children: [
-                  _buildPreMatchPage(),
-                  _buildAutoPage(),
-                  _buildTeleopPage(),
-                  _buildEndgamePage(),
+                  _buildTeamInfoPage(),
+                  _buildSpecsPage(),
+                  _buildCapabilitiesPage(),
+                  _buildCommentsPage(),
                 ],
               ),
             ),
@@ -261,173 +189,155 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     );
   }
 
-  Widget _buildPreMatchPage() {
+  Widget _buildTeamInfoPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'PRE-MATCH',
+            'GENERAL INFO',
             style: TextStyle(color: AppColors.primary, fontSize: 14, letterSpacing: 1.5, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           const Text(
-            'Match Information',
+            'Team Details',
             style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
-          _buildTextField('Match Number', _matchNumberController, Icons.numbers),
+          _buildTextField('Team Number', _teamNumberController, Icons.numbers, keyboardType: TextInputType.number),
           const SizedBox(height: 20),
-          _buildTextField('Team Number', _teamNumberController, Icons.group),
-          const SizedBox(height: 20),
-          _buildTextField('Scouter Name', _scouterNameController, Icons.person, keyboardType: TextInputType.name),
+          _buildTextField('Team Name', _teamNameController, Icons.group, keyboardType: TextInputType.name),
         ],
       ),
     );
   }
 
-  Widget _buildAutoPage() {
+  Widget _buildSpecsPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'AUTONOMOUS',
+            'ROBOT SPECS',
             style: TextStyle(color: AppColors.primary, fontSize: 14, letterSpacing: 1.5, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           const Text(
-            'Power Cell Scoring',
+            'Physical Attributes',
             style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
-          
-          _buildToggleCard(
-            'Initiation Line',
-            'Did the robot cross the line?',
-            _formData['auto']['moved'],
-            (val) => setState(() => _formData['auto']['moved'] = val),
-          ),
-          
+          _buildTextField('Weight (lbs)', _weightController, Icons.monitor_weight, keyboardType: TextInputType.number),
           const SizedBox(height: 20),
-          _buildCounter('Bottom Port', _formData['auto']['low'], (val) => setState(() => _formData['auto']['low'] = val)),
-          const SizedBox(height: 15),
-          _buildCounter('Outer Port', _formData['auto']['outer'], (val) => setState(() => _formData['auto']['outer'] = val)),
-          const SizedBox(height: 15),
-          _buildCounter('Inner Port', _formData['auto']['inner'], (val) => setState(() => _formData['auto']['inner'] = val)),
+          _buildDropdown(
+            'Drivetrain Type',
+            _formData['specs']['drivetrain'],
+            ['Tank', 'Mecanum', 'Swerve', 'H-Drive', 'Other'],
+            (val) => setState(() => _formData['specs']['drivetrain'] = val),
+          ),
+          const SizedBox(height: 20),
+          _buildDropdown(
+            'Motor Type',
+            _formData['specs']['motorType'],
+            ['Falcon 500', 'NEO 550', 'NEO v1.1', 'Kraken x60', 'Kraken x44','Other'],
+            (val) => setState(() => _formData['specs']['motorType'] = val),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTeleopPage() {
+  Widget _buildCapabilitiesPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'TELEOP',
+            'CAPABILITIES',
             style: TextStyle(color: AppColors.primary, fontSize: 14, letterSpacing: 1.5, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           const Text(
-            'Teleop Performance',
+            'Robot Actions',
             style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
-          
-          _buildCounter('Bottom Port', _formData['teleop']['low'], (val) => setState(() => _formData['teleop']['low'] = val)),
-          const SizedBox(height: 15),
-          _buildCounter('Outer Port', _formData['teleop']['outer'], (val) => setState(() => _formData['teleop']['outer'] = val)),
-          const SizedBox(height: 15),
-          _buildCounter('Inner Port', _formData['teleop']['inner'], (val) => setState(() => _formData['teleop']['inner'] = val)),
-          
-          const SizedBox(height: 30),
-          const Text('Control Panel', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 15),
           _buildToggleCard(
-            'Rotation Control',
-            'Stage 2: Spin 3-5 times',
-            _formData['teleop']['rotationControl'],
-            (val) => setState(() => _formData['teleop']['rotationControl'] = val),
+            'Auto Move',
+            'Can move in autonomous?',
+            _formData['capabilities']['autoMove'],
+            (val) => setState(() => _formData['capabilities']['autoMove'] = val),
           ),
           const SizedBox(height: 10),
           _buildToggleCard(
-            'Position Control',
-            'Stage 3: Spin to color',
-            _formData['teleop']['positionControl'],
-            (val) => setState(() => _formData['teleop']['positionControl'] = val),
+            'Auto Low Goal',
+            'Scores in low port during auto?',
+            _formData['capabilities']['autoLow'],
+            (val) => setState(() => _formData['capabilities']['autoLow'] = val),
+          ),
+          const SizedBox(height: 10),
+          _buildToggleCard(
+            'Auto High Goal',
+            'Scores in high port during auto?',
+            _formData['capabilities']['autoHigh'],
+            (val) => setState(() => _formData['capabilities']['autoHigh'] = val),
+          ),
+          const SizedBox(height: 10),
+          _buildToggleCard(
+            'Climb',
+            'Can climb the generator switch?',
+            _formData['capabilities']['climb'],
+            (val) => setState(() => _formData['capabilities']['climb'] = val),
+          ),
+          const SizedBox(height: 10),
+          _buildToggleCard(
+            'Control Panel',
+            'Can manipulate the control panel?',
+            _formData['capabilities']['wheelOfFortune'],
+            (val) => setState(() => _formData['capabilities']['wheelOfFortune'] = val),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEndgamePage() {
+  Widget _buildCommentsPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'ENDGAME',
+            'SUMMARY',
             style: TextStyle(color: AppColors.primary, fontSize: 14, letterSpacing: 1.5, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           const Text(
-            'Shield Generator',
+            'Additional Notes',
             style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
-          
-          const Text('Hang Status', style: TextStyle(color: Colors.white70, fontSize: 16)),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.surfaceHighlight),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _formData['endgame']['hang'],
-                isExpanded: true,
-                dropdownColor: AppColors.surface,
-                style: const TextStyle(color: Colors.white),
-                items: ['None', 'Park', 'Hang'].map((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-                onChanged: (val) => setState(() => _formData['endgame']['hang'] = val),
-              ),
-            ),
+          _buildTextField(
+            'Comments / Strategy',
+            _commentsController,
+            Icons.comment,
+            keyboardType: TextInputType.multiline,
+            maxLines: 5,
           ),
-          
-          if (_formData['endgame']['hang'] == 'Hang') ...[
-            const SizedBox(height: 20),
-            _buildToggleCard(
-              'Level?',
-              'Is the switch level?',
-              _formData['endgame']['level'],
-              (val) => setState(() => _formData['endgame']['level'] = val),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {TextInputType keyboardType = TextInputType.number}) {
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {TextInputType keyboardType = TextInputType.text, int maxLines = 1}) {
     return TextFormField(
       controller: controller,
       style: const TextStyle(color: Colors.white),
       keyboardType: keyboardType,
+      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: AppColors.primary),
@@ -440,43 +350,28 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     );
   }
 
-  Widget _buildCounter(String label, int value, Function(int) onChanged) {
+  Widget _buildDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.surfaceHighlight),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-          Row(
-            children: [
-              _buildIconButton(Icons.remove, () {
-                if (value > 0) onChanged(value - 1);
-              }),
-              SizedBox(width: 40, child: Center(child: Text('$value', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)))),
-              _buildIconButton(Icons.add, () => onChanged(value + 1)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIconButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceHighlight,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: IconButton(
-        icon: Icon(icon, color: Colors.white, size: 20),
-        onPressed: onPressed,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: AppColors.surface,
+          style: const TextStyle(color: Colors.white),
+          icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+          items: items.map((String item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
       ),
     );
   }

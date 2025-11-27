@@ -4,9 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_colors.dart';
 
 class SchedulePage extends StatefulWidget {
-  final VoidCallback? onMenuPressed;
-
-  const SchedulePage({super.key, this.onMenuPressed});
+  const SchedulePage({super.key});
 
   @override
   State<SchedulePage> createState() => _SchedulePageState();
@@ -103,9 +101,6 @@ class _SchedulePageState extends State<SchedulePage> with SingleTickerProviderSt
         title: const Text('Match Schedule'),
         backgroundColor: AppColors.surface,
         elevation: 0,
-        leading: widget.onMenuPressed != null 
-            ? IconButton(icon: const Icon(Icons.menu, color: AppColors.primary), onPressed: widget.onMenuPressed)
-            : null,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppColors.primary,
@@ -128,7 +123,7 @@ class _SchedulePageState extends State<SchedulePage> with SingleTickerProviderSt
         controller: _tabController,
         children: [
           _buildMyScheduleTab(),
-          _buildAllMatchesTab(), // Placeholder for now
+          _buildAllMatchesTab(), 
         ],
       ),
     );
@@ -220,7 +215,6 @@ class _SchedulePageState extends State<SchedulePage> with SingleTickerProviderSt
   }
 
   Widget _buildAssignmentCard(Map<String, dynamic> assignment, int index) {
-    // Alternate colors for visual interest
     bool isEven = index % 2 == 0;
     
     return Container(
@@ -251,7 +245,7 @@ class _SchedulePageState extends State<SchedulePage> with SingleTickerProviderSt
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {}, // Future: Navigate to match details
+          onTap: () {}, 
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(

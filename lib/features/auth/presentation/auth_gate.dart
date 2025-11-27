@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../home/presentation/home_page.dart';
 import 'username_setup_page.dart';
+import 'team_number_setup_page.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -85,7 +86,6 @@ class AuthGate extends StatelessWidget {
           );
         }
 
-        // Check if user has a username
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance.collection('users').doc(snapshot.data!.uid).get(),
           builder: (context, userSnapshot) {
@@ -98,8 +98,16 @@ class AuthGate extends StatelessWidget {
 
             if (userSnapshot.hasData && userSnapshot.data!.exists) {
               final data = userSnapshot.data!.data() as Map<String, dynamic>?;
-              if (data != null && data.containsKey('username') && data['username'] != null && (data['username'] as String).isNotEmpty) {
-                return const HomePage();
+              
+              bool hasUsername = data != null && data.containsKey('username') && data['username'] != null && (data['username'] as String).isNotEmpty;
+              bool hasTeamNumber = data != null && data.containsKey('teamNumber') && data['teamNumber'] != null && (data['teamNumber'] as String).isNotEmpty;
+
+              if (hasUsername) {
+                if (hasTeamNumber) {
+                  return const HomePage();
+                } else {
+                  return const TeamNumberSetupPage();
+                }
               }
             }
 

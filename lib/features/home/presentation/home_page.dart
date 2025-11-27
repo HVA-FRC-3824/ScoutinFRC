@@ -1,14 +1,14 @@
-// ignore_for_file: unused_import
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/presentation/auth_gate.dart';
 import '../../scouting/presentation/scouting_dashboard.dart';
 import '../../analytics/presentation/analytics_dashboard.dart';
 import '../../schedule/presentation/schedule_page.dart';
-import '../../admin/presentation/admin_page.dart';
+import '../../admin/presentation/admin_page.dart' as admin_page;
 import '../../auth/presentation/account_settings_page.dart';
 import 'widgets/side_menu.dart';
 
@@ -20,31 +20,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final List<Widget> _pages = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _pages.addAll([
-      HomeDashboardView(
-        onTabChange: (index) => _onTabChange(index),
-        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
-      ),
-      ScoutingDashboard(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
-      AnalyticsDashboard(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
-      SchedulePage(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
-      AdminPage(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
-      AccountSettingsPage(onMenuPressed: () => _scaffoldKey.currentState?.openDrawer()),
-    ]);
-  }
-
-  void _onTabChange(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+  void _onDestinationSelected(int index) {
+    if (index == 0) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AccountSettingsPage()),
+      );
+    }
   }
 
   @override
@@ -53,12 +37,34 @@ class _HomePageState extends State<HomePage> {
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
       drawer: SideMenu(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: _onTabChange,
+        selectedIndex: -1, 
+        onDestinationSelected: _onDestinationSelected,
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
+      body: HomeDashboardView(
+        onTabChange: (index) {
+          Widget page;
+          switch (index) {
+            case 1:
+              page = const ScoutingDashboard();
+              break;
+            case 2:
+              page = const AnalyticsDashboard();
+              break;
+            case 3:
+              page = const SchedulePage();
+              break;
+            case 4:
+              page = const admin_page.AdminPage();
+              break;
+            default:
+              return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => page),
+          );
+        },
+        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
     );
   }
@@ -74,13 +80,13 @@ class HomeDashboardView extends StatelessWidget {
     required this.onMenuPressed,
   });
 
-  Future<String> _getUsername() async {
+  Future<Map<String, dynamic>> _getUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      return doc.data()?['username'] ?? 'Scouter';
+      return doc.data() ?? {};
     }
-    return 'Scouter';
+    return {};
   }
 
   @override
@@ -146,33 +152,54 @@ class HomeDashboardView extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Welcome back,',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                ),
-                FutureBuilder<String>(
-                  future: _getUsername(),
-                  builder: (context, snapshot) {
-                    return Text(
-                      snapshot.data ?? 'Loading...',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _getUserData(),
+              builder: (context, snapshot) {
+                final userData = snapshot.data ?? {};
+                final username = userData['username'] ?? 'Scouter';
+                final photoURL = userData['photoURL'];
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Welcome back,',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                          ),
+                          Text(
+                            username,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
-              ],
+                    ),
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppColors.primary.withOpacity(0.2),
+                      child: photoURL != null
+                          ? ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: photoURL,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                                errorWidget: (context, url, error) => const Icon(Icons.person, color: AppColors.primary),
+                              ),
+                            )
+                          : const Icon(Icons.person, color: AppColors.primary),
+                    ),
+                  ],
+                );
+              },
             ),
-          ),
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.primary.withOpacity(0.2),
-            child: const Icon(Icons.person, color: AppColors.primary),
           ),
         ],
       ),
@@ -194,7 +221,7 @@ class HomeDashboardView extends StatelessWidget {
           'Collect match data',
           Icons.sports_esports,
           AppColors.primary,
-          () => onTabChange(1), // Switch to Scouting Tab
+          () => onTabChange(1), 
         ),
         _buildActionCard(
           context,
@@ -202,7 +229,7 @@ class HomeDashboardView extends StatelessWidget {
           'View team stats',
           Icons.analytics,
           AppColors.tertiary,
-          () => onTabChange(2), // Switch to Analytics Tab
+          () => onTabChange(2), 
         ),
         _buildActionCard(
           context,
@@ -210,7 +237,7 @@ class HomeDashboardView extends StatelessWidget {
           'Upcoming matches',
           Icons.calendar_today,
           AppColors.secondary,
-          () => onTabChange(3), // Switch to Schedule Tab
+          () => onTabChange(3), 
         ),
         _buildActionCard(
           context,
@@ -218,7 +245,7 @@ class HomeDashboardView extends StatelessWidget {
           'Manage app settings',
           Icons.admin_panel_settings,
           Colors.purple,
-          () => onTabChange(4), // Switch to Admin Tab
+          () => onTabChange(4), 
         ),
       ],
     );

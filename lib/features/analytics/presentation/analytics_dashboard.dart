@@ -3,9 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../core/constants/app_colors.dart';
 
 class AnalyticsDashboard extends StatelessWidget {
-  final VoidCallback? onMenuPressed;
-
-  const AnalyticsDashboard({super.key, this.onMenuPressed});
+  const AnalyticsDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -15,15 +13,6 @@ class AnalyticsDashboard extends StatelessWidget {
         title: const Text('Analytics Command'),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: onMenuPressed != null 
-            ? IconButton(icon: const Icon(Icons.menu, color: AppColors.primary), onPressed: onMenuPressed)
-            : null,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: AppColors.primary),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

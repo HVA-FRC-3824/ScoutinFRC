@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../auth/presentation/auth_gate.dart';
 
@@ -36,21 +37,16 @@ class SideMenu extends StatelessWidget {
               final username = userData['username'] ?? 'Scouter';
               final email = FirebaseAuth.instance.currentUser?.email ?? '';
               final role = userData['role'] ?? 'user';
+              final photoURL = userData['photoURL'];
 
-              return _buildHeader(username, email, role);
+              return _buildHeader(username, email, role, photoURL);
             },
           ),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildNavItem(context, 0, 'Home', Icons.dashboard_outlined, Icons.dashboard),
-                _buildNavItem(context, 1, 'Scouting', Icons.sports_esports_outlined, Icons.sports_esports),
-                _buildNavItem(context, 2, 'Analytics', Icons.analytics_outlined, Icons.analytics),
-                _buildNavItem(context, 3, 'Schedule', Icons.calendar_today_outlined, Icons.calendar_today),
-                const Divider(color: AppColors.surfaceHighlight),
-                _buildNavItem(context, 4, 'Admin', Icons.admin_panel_settings_outlined, Icons.admin_panel_settings),
-                _buildNavItem(context, 5, 'Account Settings', Icons.manage_accounts_outlined, Icons.manage_accounts),
+                _buildNavItem(context, 0, 'Account Settings', Icons.manage_accounts_outlined, Icons.manage_accounts),
               ],
             ),
           ),
@@ -73,7 +69,7 @@ class SideMenu extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(String username, String email, String role) {
+  Widget _buildHeader(String username, String email, String role, String? photoURL) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
@@ -86,10 +82,21 @@ class SideMenu extends StatelessWidget {
           CircleAvatar(
             radius: 35,
             backgroundColor: AppColors.surface,
-            child: Text(
-              username.isNotEmpty ? username[0].toUpperCase() : 'S',
-              style: const TextStyle(fontSize: 32, color: AppColors.primary, fontWeight: FontWeight.bold),
-            ),
+            child: photoURL != null
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: photoURL,
+                      width: 70,
+                      height: 70,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const CircularProgressIndicator(color: AppColors.primary),
+                      errorWidget: (context, url, error) => const Icon(Icons.error, color: AppColors.error),
+                    ),
+                  )
+                : Text(
+                    username.isNotEmpty ? username[0].toUpperCase() : 'S',
+                    style: const TextStyle(fontSize: 32, color: AppColors.primary, fontWeight: FontWeight.bold),
+                  ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -133,7 +140,7 @@ class SideMenu extends StatelessWidget {
       selectedTileColor: AppColors.primary.withOpacity(0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       onTap: () {
-        Navigator.pop(context); // Close drawer
+        Navigator.pop(context); 
         onDestinationSelected(index);
       },
     );

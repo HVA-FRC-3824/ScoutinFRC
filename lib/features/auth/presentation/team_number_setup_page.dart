@@ -4,19 +4,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../home/presentation/home_page.dart';
 
-class UsernameSetupPage extends StatefulWidget {
-  const UsernameSetupPage({super.key});
+class TeamNumberSetupPage extends StatefulWidget {
+  const TeamNumberSetupPage({super.key});
 
   @override
-  State<UsernameSetupPage> createState() => _UsernameSetupPageState();
+  State<TeamNumberSetupPage> createState() => _TeamNumberSetupPageState();
 }
 
-class _UsernameSetupPageState extends State<UsernameSetupPage> {
+class _TeamNumberSetupPageState extends State<TeamNumberSetupPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _teamNumberController = TextEditingController();
   bool _isLoading = false;
 
-  Future<void> _submitUsername() async {
+  Future<void> _submitTeamNumber() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
@@ -24,10 +24,7 @@ class _UsernameSetupPageState extends State<UsernameSetupPage> {
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
           await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-            'username': _usernameController.text.trim(),
-            'role': 'user', 
-            'email': user.email,
-            'createdAt': FieldValue.serverTimestamp(),
+            'teamNumber': _teamNumberController.text.trim(),
           }, SetOptions(merge: true));
 
           if (mounted) {
@@ -39,7 +36,7 @@ class _UsernameSetupPageState extends State<UsernameSetupPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error saving username: $e')),
+            SnackBar(content: Text('Error saving team number: $e')),
           );
         }
       } finally {
@@ -63,10 +60,10 @@ class _UsernameSetupPageState extends State<UsernameSetupPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.account_circle, size: 80, color: AppColors.primary),
+                const Icon(Icons.group_add, size: 80, color: AppColors.primary),
                 const SizedBox(height: 24),
                 const Text(
-                  'Welcome to ScoutinFRC!',
+                  'One Last Thing!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
@@ -76,17 +73,18 @@ class _UsernameSetupPageState extends State<UsernameSetupPage> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Please choose a username to continue.',
+                  'What is your Team Number?',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 32),
                 TextFormField(
-                  controller: _usernameController,
+                  controller: _teamNumberController,
                   style: const TextStyle(color: Colors.white),
+                  keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: const Icon(Icons.person, color: AppColors.textSecondary),
+                    labelText: 'Team Number',
+                    prefixIcon: const Icon(Icons.numbers, color: AppColors.textSecondary),
                     filled: true,
                     fillColor: AppColors.surface,
                     border: OutlineInputBorder(
@@ -97,17 +95,17 @@ class _UsernameSetupPageState extends State<UsernameSetupPage> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter a username';
+                      return 'Please enter your team number';
                     }
-                    if (value.length < 3) {
-                      return 'Username must be at least 3 characters';
+                    if (int.tryParse(value) == null) {
+                      return 'Please enter a valid number';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _submitUsername,
+                  onPressed: _isLoading ? null : _submitTeamNumber,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.black,
@@ -123,7 +121,7 @@ class _UsernameSetupPageState extends State<UsernameSetupPage> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Text(
-                          'Continue',
+                          'Get Started',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),

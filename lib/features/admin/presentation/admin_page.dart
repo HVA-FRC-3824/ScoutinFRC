@@ -1,4 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -7,9 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/constants/app_colors.dart';
 
 class AdminPage extends StatefulWidget {
-  final VoidCallback? onMenuPressed;
-
-  const AdminPage({super.key, this.onMenuPressed});
+  const AdminPage({super.key});
 
   @override
   State<AdminPage> createState() => _AdminPageState();
@@ -19,9 +16,8 @@ class _AdminPageState extends State<AdminPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Map<String, dynamic>> _users = [];
   
-  // Scheduling State
   final TextEditingController _eventCodeController = TextEditingController();
-  final TextEditingController _scoutersController = TextEditingController();
+
   List<dynamic> _fetchedMatches = [];
   bool _isFetchingMatches = false;
   bool _isGeneratingSchedule = false;
@@ -85,7 +81,7 @@ class _AdminPageState extends State<AdminPage> {
         List<dynamic> qualMatches = allMatches
             .where((match) => match['comp_level'] == 'qm')
             .toList()
-          ..sort((a, b) => a['match_number'].compareTo(b['match_number']));
+          ..sort((a, b) => (a['match_number'] as int).compareTo(b['match_number'] as int));
 
         setState(() {
           _fetchedMatches = qualMatches;
@@ -116,14 +112,64 @@ class _AdminPageState extends State<AdminPage> {
       );
       return;
     }
+
+    final eligibleScouters = _users.where((u) => u['role'] == 'pitscouter' || u['role'] == 'user').toList();
+    
+    if (eligibleScouters.isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No eligible scouters found (User or Pitscouter role)')),
+      );
+      return;
+    }
     
     setState(() => _isGeneratingSchedule = true);
-    await Future.delayed(const Duration(seconds: 2)); // Simulate work
-    setState(() => _isGeneratingSchedule = false);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Schedule generated successfully (Simulation)')),
-    );
+
+    try {
+      final batch = _firestore.batch();
+      final collection = _firestore.collection('scouting_assignments');
+      
+      int scouterIndex = 0;
+
+      for (var match in _fetchedMatches) {
+        final matchNumber = match['match_number'];
+        final alliances = match['alliances'];
+        final redTeams = List<String>.from(alliances['red']['team_keys']);
+        final blueTeams = List<String>.from(alliances['blue']['team_keys']);
+        final allTeams = [...redTeams, ...blueTeams];
+
+        for (var teamKey in allTeams) {
+          final teamNumber = teamKey.replaceAll('frc', '');
+          final scouter = eligibleScouters[scouterIndex % eligibleScouters.length];
+          
+          final docRef = collection.doc('${_eventCodeController.text}_qm${matchNumber}_$teamNumber');
+          
+          batch.set(docRef, {
+            'eventCode': _eventCodeController.text,
+            'matchNumber': matchNumber,
+            'teamNumber': teamNumber,
+            'scouterUid': scouter['uid'],
+            'scouterName': scouter['username'],
+            'alliance': redTeams.contains(teamKey) ? 'Red' : 'Blue',
+            'status': 'assigned', 
+          });
+
+          scouterIndex++;
+        }
+      }
+
+      await batch.commit();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Generated assignments for ${_fetchedMatches.length} matches!')),
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating schedule: $e')),
+      );
+    } finally {
+      setState(() => _isGeneratingSchedule = false);
+    }
   }
 
   @override
@@ -167,8 +213,8 @@ class _AdminPageState extends State<AdminPage> {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(widget.onMenuPressed != null ? Icons.menu : Icons.arrow_back, color: Colors.white),
-            onPressed: widget.onMenuPressed ?? () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
           ),
           const SizedBox(width: 10),
           const Column(
@@ -323,8 +369,11 @@ class _AdminPageState extends State<AdminPage> {
           const SizedBox(height: 24),
           const Text('SCOUTER ASSIGNMENT', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 16),
-          _buildTextField('Scouter Names (comma-separated)', _scoutersController, Icons.group, maxLines: 3),
-          const SizedBox(height: 12),
+          const Text(
+            'The system will automatically assign all users with "pitscouter" or "user" roles to the matches.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
