@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/constants/app_colors.dart';
+import 'team_analysis_page.dart';
+import 'match_predictor_page.dart';
+import 'alliance_selection_page.dart';
 
 class AnalyticsDashboard extends StatelessWidget {
   const AnalyticsDashboard({super.key});
@@ -19,6 +22,8 @@ class AnalyticsDashboard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildFeatureButtons(context),
+            const SizedBox(height: 24),
             _buildStatCards(),
             const SizedBox(height: 24),
             _buildSectionHeader('Scoring Trends'),
@@ -33,6 +38,75 @@ class AnalyticsDashboard extends StatelessWidget {
             const SizedBox(height: 16),
             _buildTopTeamsList(),
           ],
+        ),
+      ),
+    );
+  }
+
+
+
+  Widget _buildFeatureButtons(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionButton(
+                context,
+                'Team Analysis',
+                Icons.radar,
+                Colors.purple,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TeamAnalysisPage())),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildActionButton(
+                context,
+                'Match Predictor',
+                Icons.online_prediction,
+                Colors.orange,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MatchPredictorPage())),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildActionButton(
+          context,
+          'Alliance Selection',
+          Icons.list_alt,
+          AppColors.success,
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllianceSelectionPage())),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton(BuildContext context, String title, IconData icon, Color color, VoidCallback onTap) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.surfaceHighlight),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 32),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
