@@ -29,20 +29,14 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     'matchInfo': {},
     'auto': {
       'moved': false,
-      'low': 0,
-      'outer': 0,
-      'inner': 0,
+      'fuel': 0,
+      'l1Climb': false,
     },
     'teleop': {
-      'low': 0,
-      'outer': 0,
-      'inner': 0,
-      'rotationControl': false,
-      'positionControl': false,
+      'fuel': 0,
     },
     'endgame': {
       'hang': 'None', 
-      'level': false,
     },
   };
 
@@ -170,7 +164,7 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Infinite Recharge Scouting'),
+        title: const Text('REBUILT 2026 Scouting'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -299,24 +293,28 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Power Cell Scoring',
+            'Fuel Scoring',
             style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
           
           _buildToggleCard(
-            'Initiation Line',
-            'Did the robot cross the line?',
+            'Leave',
+            'Did the robot leave the starting line?',
             _formData['auto']['moved'],
             (val) => setState(() => _formData['auto']['moved'] = val),
           ),
           
           const SizedBox(height: 20),
-          _buildCounter('Bottom Port', _formData['auto']['low'], (val) => setState(() => _formData['auto']['low'] = val)),
-          const SizedBox(height: 15),
-          _buildCounter('Outer Port', _formData['auto']['outer'], (val) => setState(() => _formData['auto']['outer'] = val)),
-          const SizedBox(height: 15),
-          _buildCounter('Inner Port', _formData['auto']['inner'], (val) => setState(() => _formData['auto']['inner'] = val)),
+          _buildCounter('Fuel Scored', _formData['auto']['fuel'], (val) => setState(() => _formData['auto']['fuel'] = val)),
+          
+          const SizedBox(height: 20),
+          _buildToggleCard(
+            'L1 Climb',
+            'Did the robot L1 climb in Auto?',
+            _formData['auto']['l1Climb'],
+            (val) => setState(() => _formData['auto']['l1Climb'] = val),
+          ),
         ],
       ),
     );
@@ -339,28 +337,7 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
           ),
           const SizedBox(height: 30),
           
-          _buildCounter('Bottom Port', _formData['teleop']['low'], (val) => setState(() => _formData['teleop']['low'] = val)),
-          const SizedBox(height: 15),
-          _buildCounter('Outer Port', _formData['teleop']['outer'], (val) => setState(() => _formData['teleop']['outer'] = val)),
-          const SizedBox(height: 15),
-          _buildCounter('Inner Port', _formData['teleop']['inner'], (val) => setState(() => _formData['teleop']['inner'] = val)),
-          
-          const SizedBox(height: 30),
-          const Text('Control Panel', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 15),
-          _buildToggleCard(
-            'Rotation Control',
-            'Stage 2: Spin 3-5 times',
-            _formData['teleop']['rotationControl'],
-            (val) => setState(() => _formData['teleop']['rotationControl'] = val),
-          ),
-          const SizedBox(height: 10),
-          _buildToggleCard(
-            'Position Control',
-            'Stage 3: Spin to color',
-            _formData['teleop']['positionControl'],
-            (val) => setState(() => _formData['teleop']['positionControl'] = val),
-          ),
+          _buildCounter('Fuel Scored', _formData['teleop']['fuel'], (val) => setState(() => _formData['teleop']['fuel'] = val)),
         ],
       ),
     );
@@ -378,7 +355,7 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Shield Generator',
+            'Endgame',
             style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
@@ -398,7 +375,7 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
                 isExpanded: true,
                 dropdownColor: AppColors.surface,
                 style: const TextStyle(color: Colors.white),
-                items: ['None', 'Park', 'Hang'].map((String value) {
+                items: ['None', 'Park', 'Climb'].map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
                     child: Text(value),
@@ -409,14 +386,8 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
             ),
           ),
           
-          if (_formData['endgame']['hang'] == 'Hang') ...[
-            const SizedBox(height: 20),
-            _buildToggleCard(
-              'Level?',
-              'Is the switch level?',
-              _formData['endgame']['level'],
-              (val) => setState(() => _formData['endgame']['level'] = val),
-            ),
+          if (_formData['endgame']['hang'] == 'Climb') ...[
+             // Additional climb info can go here if needed, simplified for now
           ],
         ],
       ),
