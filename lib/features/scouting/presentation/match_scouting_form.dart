@@ -34,6 +34,7 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
     },
     'teleop': {
       'fuel': 0,
+      'defense': 0.0,
     },
     'endgame': {
       'hang': 'None', 
@@ -338,6 +339,20 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
           const SizedBox(height: 30),
           
           _buildCounter('Fuel Scored', _formData['teleop']['fuel'], (val) => setState(() => _formData['teleop']['fuel'] = val)),
+          
+          const SizedBox(height: 20),
+          const Text('Defense Rating', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 10),
+          Slider(
+            value: (_formData['teleop']['defense'] ?? 0.0).toDouble(),
+            min: 0,
+            max: 5,
+            divisions: 5,
+            label: (_formData['teleop']['defense'] ?? 0).toString(),
+            activeColor: AppColors.primary,
+            inactiveColor: AppColors.surfaceHighlight,
+            onChanged: (val) => setState(() => _formData['teleop']['defense'] = val),
+          ),
         ],
       ),
     );
@@ -375,7 +390,7 @@ class _MatchScoutingFormState extends State<MatchScoutingForm> {
                 isExpanded: true,
                 dropdownColor: AppColors.surface,
                 style: const TextStyle(color: Colors.white),
-                items: ['None', 'Park', 'Climb'].map((String value) {
+                items: ['None', 'L1', 'L2', 'L3'].map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
                     child: Text(value),

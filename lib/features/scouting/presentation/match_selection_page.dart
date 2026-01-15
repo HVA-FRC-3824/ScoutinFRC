@@ -133,7 +133,7 @@ class _MatchSelectionPageState extends State<MatchSelectionPage> {
               controller: _eventCodeController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Event Code (e.g. 2024txwac)',
+                hintText: 'Event Code (e.g. 2026tnkn)',
                 hintStyle: const TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: AppColors.background,
